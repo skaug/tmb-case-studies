@@ -1,0 +1,217 @@
+# Runtime C++ debugging
+
+It is important to be able to debug run time errors that occur in
+the C++ code. RStudio has great functionality for debugging R
+code, but the corrsponding tools for C++ are more primitive. 
+We will assume that you are using the `gcc` compiler, and the
+accompayning `gdb` debugger.
+
+#### Operating system specific notes
+* Linux: debugging works without problems
+* Mac: ?
+* Windows: The behaviour of `gdb` has varied across
+  versions of R and Rtools. In case of problems, please consult: [https://github.com/kaskr/adcomp/wiki/Windows-installation#windows-debugging](https://github.com/kaskr/adcomp/wiki/Windows-installation#windows-debugging).
+
+***
+  
+### In this example you will learn
+
+* Set up TMB so that the debugger can be used
+* Run the debugger to locate the line number in the C++ file *where* the error occured
+* Print the content of variables, such as array dimensions, which helps you understand *why* the error occured
+
+***
+
+### Full code for example
+<details> <summary> R code</summary>
+```r 
+library(TMB)
+compile("debug_tutorial.cpp",flags="-O0 -g",DLLFLAGS="",libtmb=FALSE)
+# Note to Windows user: flags="-O1 -g" must be used for larger programs,
+#                       but does not gives worse debugger functionality
+
+dyn.load(dynlib("debug_tutorial"))
+
+dat <- list(X=matrix(1:6,nrow=3,ncol=2),y=1:5)
+pars <- list(a=0)
+obj <- MakeADFun(data=dat, parameters=pars, DLL="debug_tutorial")
+```
+</details>
+
+<details> <summary> C++ code</summary>
+```c++
+// Debugger (gdb) tutorial
+#include <TMB.hpp>
+
+template<class Type>
+Type objective_function<Type>::operator() ()
+{
+  DATA_MATRIX(X);
+  DATA_VECTOR(y);
+  PARAMETER(a);
+  
+  X(0,0);
+  for(int i=1; i<=y.size(); i++){
+    y(i);  // Out-of-range error when i == y.size()
+  }
+  
+  Type nll = a;
+  return nll;
+}
+
+```
+</details>
+
+***
+
+### Description
+A common mistake made by new TMB users 
+is to forget that in C++ indexing starts at zero
+and ends at dimension-1. In our example this happens in the lines
+```c++
+  for(int i=1; i<=y.size(); i++){
+    y(i);  // Out-of-range error when i == y.size()
+  }
+```
+This is a typical situation where the debugger is useful, because it can point to the line where the error occurs.
+
+***
+
+### A guided tour through `gdb`
+<details> <summary> Verify that the error crashes R</summary>
+```r 
+  source("debug_tutorial.R")`
+```
+</details>
+
+<details> <summary> Compile the program with debugging information.
+</summary>
+```r 
+  library(TMB)
+  compile("debug_tutorial.cpp",flags="-O0 -g",DLLFLAGS="",libtmb=FALSE)
+```
+This is needed for the debugger to be able to show your C++ code.
+Note that this command has allready been run if you followed
+the first step.
+</details>
+
+<details> <summary> Source the R script using `gdbsource()`.
+</summary>
+```r 
+gdbsource("debug_tutorial.R",interactive=TRUE)
+```
+This a "safe" version of `source()` which prevents R from crashing.
+
+If `gdb` is working properly on your system this will take you into the debugger
+(exact behavior depends on your system). Under Windows
+it brings up a terminal windown  with text flushing through, 
+and ending with: 
+```r
+> obj <- MakeADFun(data=dat, parameters=pars, DLL="debug_tutorial")
+TMB has received an error from Eigen. The following condition was not met:
+index >= 0 && index < size()
+Please check your matrix-vector bounds etc., or run your program through a debug
+ger.
+
+Breakpoint 1, 0x00000000156bf7e8 in abort ()
+   from D:\github\tmb-courses\bergen_june18\debug_tutorial.dll
+#0  0x00000000156bf7e8 in abort ()
+   from D:\github\tmb-courses\bergen_june18\debug_tutorial.dll
+#1  0x0000000015737a77 in Eigen::DenseCoeffsBase<Eigen::Array<double, -1, 1, 0,
+-1, 1>, 1>::operator() (this=0x441ce60, index=5)
+    at C:/PROGRA~1/R/R-35~1.0/library/RCPPEI~1/include/Eigen/src/Core/DenseCoeff
+sBase.h:425
+---Type <return> to continue, or q <return> to quit---
+```
+You recognize the first part of this as an error message from TMB. Press the `return`
+key a few times until you see something like:
+```r 
+#16 0x000000000040155a in ?? ()
+#17 0x00000000004013e8 in ?? ()
+#18 0x000000000040151b in ?? ()
+#19 0x00000000775159cd in KERNEL32!BaseThreadInitThunk ()
+   from C:\Windows\system32\kernel32.dll
+#20 0x000000007767383d in ntdll!RtlUserThreadStart ()
+   from C:\Windows\SYSTEM32\ntdll.dll
+#21 0x0000000000000000 in ?? ()
+Backtrace stopped: previous frame inner to this frame (corrupt stack?)
+Warning: the current language does not match this frame.
+(gdb)
+```
+You see the `gdb` prompt at the end (where debugging commands can be entered). 
+You have now verified that the `gdb` is working properly.
+</details>
+
+<details> <summary> Make  `gdb` show you the line with the error.
+</summary>
+
+At the `(gdb)` promt in the terminal window, give the command `frame 2`:
+```r
+(gdb) frame 2
+#2  0x00000000156cd5e4 in objective_function<double>::operator() (
+    this=0x441cf40) at debug_tutorial.cpp:14
+14          y(i);  // Out-of-range error when i == y.size()
+(gdb)
+```
+This show the code line that caused the crash. Usually this
+is enough to find the source of the error, but below we will 
+explore more advanced debugging features.
+
+####Comment
+The appropriate "frame number" (here 2) will vary from model to model. 
+Experiment with different numbers in the range 2-5 until you see the text
+ `in objective_function<double>::operator()`.
+</details>
+
+<details> <summary> How do I quit the debugger?
+</summary>
+
+Type `quit` followed `y`:
+```r
+(gdb) quit
+A debugging session is active.
+
+        Inferior 1 [process 3996] will be killed.
+
+Quit anyway? (y or n) y
+```
+
+</details>
+
+
+<details> <summary> A quicker way to find the line number.
+</summary>
+
+If you is only interested in the line number of the error (but it does not currently work under Windows):
+```r 
+gdbsource("debug_tutorial.R",interactive=FALSE)
+```
+</details>
+
+<details> <summary> Print the value of variables
+</summary>
+
+It is very useful to also be able to see the value stored
+in variables when the crash occurred. For example, we know
+the error occured in a loop, and we would like to know for which
+value of `i`:
+```r 
+(gdb) print i
+$1 = 5
+```
+You can also find the dimension of vectors, arrays, and matrices.
+Here are a few examples:
+```r 
+(gdb) print y.size()
+$2 = 5
+(gdb) print X.cols()
+$3 = 2
+(gdb) print X.rows()
+$4 = 3
+```
+Hence, we know that the maximum allowed index value for `i` is 4 (5-1 due to
+the fact that C++ arrays are zero indexed),
+which explains why the crash occured.
+</details>
+
+***
