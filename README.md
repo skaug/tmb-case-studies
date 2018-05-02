@@ -7,7 +7,7 @@ present repository contains a collection of worked TMB examples provided for edu
 Using the case studies
 ----------------------
 * Case studies are  found in separate folders
-* Open the `.Rmd` (R Markdown) file and push the buttom `knit`
+* Open the `.Rmd` (R Markdown) file in RStudio and push the buttom `knit`
 
 
 
