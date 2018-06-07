@@ -1,0 +1,224 @@
+```{r echo=FALSE, eval=TRUE, results='hide',include=FALSE}
+library(TMB)
+library(mgcv)
+library(Matrix)
+source("../utils.R")
+source("pSplines.R")
+```
+
+
+## **GAM model based on P-splines**
+In this example you learn:
+
+* How to estimate a model with P-splines (penalized B-splines) in TMB.
+* How to set up the the spline part of the model in the `mgcv` package. 
+* How to extract standard errors of a spline in TMB.
+* How to input "complex datastructures" from R to C++ via _sparse matrices_.
+
+***
+#### Description of the practical situation
+Let $Y(d)$ be the biodiversity, as given by the variable `Richness` in the data. We assume that $Y(d) \sim N(\mu,\sigma^2)$, were 
+$$\mu = \beta_0 +  f_1(rock) +f_2(litter) + f_3(soil) + f_4(fallPrec) + f_5(sprTmax).$$
+Here, $f_1,\ldots,f_5$ are B splines, modelled as function of covariates `rock`, `litter`,... (see data summary below).
+See page 63 in Zuur (2009) for a similar example with use of the same data.
+<details> <summary> "Penalizing the splines": how to get an appropriate level of smoothness?</summary>
+We let the coefficients of the $i$th spline have a multivariate normal distribution with precision matrix $\lambda_i \pmb{S}_i$, where $\lambda_i$ is a penalization parameter and $\pmb{S}_i$ is a penalization matrix extracted from the R-package `mgcv`. The matrices $\pmb{S}_i$ are singular, and hence the multivariate normal distributions are degenerate. However, when bringing in data through the likelihood, the (posterior) precission matrix becomes non-singular. See [Wood (2017)](https://books.google.no/books?id=JTkkDwAAQBAJ&printsec=frontcover&dq=generalized+additive+models+wood+2017&hl=no&sa=X&ved=0ahUKEwjp4o2sicHbAhWEFZoKHaHYBQ0Q6AEIJzAA#v=onepage&q=generalized%20additive%20models%20wood%202017&f=false) for details.
+</details>
+
+<details> <summary> Summary of the data.</summary>
+```{r,echo=FALSE, comment=""}
+head(Vegetation,5)
+```
+</details>
+
+***
+
+#### Full code for example
+<details> <summary> R code</summary>
+```{r,echo=FALSE, comment=""}
+include_source("pSplines.R", linesToInclud=c(1:3, 10:999))
+```
+</details>
+<details> <summary> C++ code</summary>
+```{r,echo=FALSE, comment=""}
+include_source("pSplines.cpp", linesToInclud=c(1:999))
+```
+</details>
+
+***
+
+#### C++ code step-by-step
+<details>  
+  <summary>Read data from R</summary>
+```c++
+    DATA_VECTOR(Y);
+    DATA_MATRIX(X);         // Covariates as columns
+    DATA_SPARSE_MATRIX(S);  // diag(S1,S2,S3,S4,S5), but not storing 
+                            // off-diagonal zeros
+    DATA_VECTOR(Sdims);     // Dimensions of S1,S2,S3,S4,S5
+    DATA_SPARSE_MATRIX(designMatrixForReport);
+```
+</details>
+<details>
+  <summary>Read parameters from R</summary>
+```c++
+    PARAMETER(beta0);
+    PARAMETER_VECTOR(beta);
+    PARAMETER_VECTOR(log_lambda);
+    PARAMETER(log_sigma);
+```
+</details>
+<details>
+
+<summary>Transform the standard deviation, $\sigma$, and the penalize parameter, $\lambda$, from log scale</summary>
+```c++
+    Type sigma = exp(log_sigma);
+    vector<Type> lambda = exp(log_lambda);
+```
+</details>
+<details>
+
+<summary>Define the objective function</summary>
+```c++
+    Type nll = 0.0;
+```
+</details>
+<details>
+
+  <summary>Calculate the the likelihood contribution from the spline (the penalilzation)</summary>
+  The negative log likelihood contribution from each spline is $0.5 \text{log} \lambda_i m_i -  \lambda_i \pmb{\beta}_i \pmb{S}_i \pmb{\beta}_i^T$, were $m_i$ is the number of regression parameters for the $i$th spline. 
+```c++
+    vector<Type> S_beta = S*beta;
+    nll -= 0.5*(log_lambda*Sdims).sum();  
+    int counter = 0;
+    for(int i=0;i<Sdims.size(); i++){
+      for(int j=0;j<Sdims(i); j++){
+        nll -= -0.5*lambda(i)*beta(counter)*S_beta(counter);
+        counter++;
+      }
+    }
+```
+</details>
+<details>
+
+  <summary>Calculate the liear predictor, $\mu$.   </summary>
+```c++
+    vector<Type> mu(Y.size());
+    mu = beta0 + X*beta;
+```
+</details>
+<details>
+
+<summary>Calculate the negative log likelihood $\sum_{i=1}^{n}\log P(Y|\sigma,\text{splines})$</summary>
+```c++
+    for(int i=0; i<Y.size(); i++){
+      nll -= dnorm(Y(i), mu(i), sigma, true);
+    }
+```
+</details>
+<details>
+
+<summary>Return the objective function </summary>
+```c++
+  return nll;
+```
+</details>
+
+
+***
+#### Exercise
+
+1. There are 5 penalty matrices (S-matrices) in this example that are sent
+to the .cpp code jointly as a blockdiagonal sparse matrix `S_combined`.
+Understand this mechanism by looking at the following miniature example:
+<details>  
+  <summary>R code to be run line by line</summary>
+```r
+  M1 = matrix(1:4,2,2)               # ordinary 2x2 matrix
+  M2 = matrix(5:9,2,2)               # ordinary 2x2 matrix
+  M_block_diag = .bdiag(list(M1,M2)) # Block diagonal (sparse) matrix
+  data.class(M_block_diag)           # Check data.class
+  print(M_block_diag)                # dots means 0 value
+```
+</details>
+
+
+2. Plot the estimated splines with 95% confidence intervalls.
+<details>
+  <summary>Solution</summary>
+    First we define a design matrix for the splines we want to plot:
+    ```r
+      #R code
+      ROCK=min(Vegetation$ROCK):max(Vegetation$ROCK)
+      LITTER=min(Vegetation$LITTER):max(Vegetation$LITTER)
+      BARESOIL=min(Vegetation$BARESOIL):max(Vegetation$BARESOIL)
+      FallPrec=min(Vegetation$FallPrec):max(Vegetation$FallPrec)
+      SprTmax=min(Vegetation$SprTmax):max(Vegetation$SprTmax)
+      
+      rockReport = PredictMat(gam_setup$smooth[[1]],data = data.frame(ROCK))
+      litterReport = PredictMat(gam_setup$smooth[[2]],data = data.frame(LITTER)) 
+      soilReport = PredictMat(gam_setup$smooth[[3]],data = data.frame(BARESOIL)) 
+      fallReport = PredictMat(gam_setup$smooth[[4]],data = data.frame(FallPrec)) 
+      sprReport = PredictMat(gam_setup$smooth[[5]],data = data.frame(SprTmax))
+      
+      designMatrixForReport = list(rockReport,litterReport,soilReport,fallReport,sprReport)
+      data$designMatrixForReport = .bdiag(designMatrixForReport) 
+    ```
+    
+    Then we estimate those splines in TMB when we estimate the model:
+    ```c++
+        //c++ code
+        DATA_SPARSE_MATRIX(designMatrixForReport); //place were the data is included
+        
+        vector<Type> splineForReport = designMatrixForReport*beta; //place just before return nll
+        ADREPORT(splineForReport);
+  
+    ```
+    Then we extract the estimated splines with standard errors, and plot the splines:
+  
+    ```{r, fig.height=7, fig.width=7}
+      #R code
+      muSpline = rep$value[names(rep$value)=="splineForReport"]
+      sdSpline<-rep$sd[names(rep$value)=="splineForReport"]
+      
+      par(mfrow=c(2,3))
+      start = 1
+      stop = start + length(ROCK) -1
+      plot(ROCK, muSpline[start:stop], lty=1,type = 'l',ylim = c(-6,5),ylab = "f(rock)",main = "Spline for ROCK")
+      lines(ROCK, muSpline[start:stop]- 1.96*sdSpline[start:stop], lty=2)
+      lines(ROCK, muSpline[start:stop]+ 1.96*sdSpline[start:stop], lty=2)
+      abline(h = 0)
+      
+      start = stop +1
+      stop = start+ length(LITTER)-1
+      plot(LITTER, muSpline[start:stop], lty=1,type = 'l',ylim = c(-6,5),ylab = "f(litter)",main = "Spline for LITTER")
+      lines(LITTER, muSpline[start:stop]- 1.96*sdSpline[start:stop], lty=2)
+      lines(LITTER, muSpline[start:stop]+ 1.96*sdSpline[start:stop], lty=2)
+      abline(h = 0)
+      
+      start = stop +1
+      stop = start+ length(BARESOIL)-1
+      plot(BARESOIL, muSpline[start:stop], lty=1,type = 'l',ylim = c(-6,5),ylab = "f(soil)",main = "Spline for BARESOIL")
+      lines(BARESOIL, muSpline[start:stop]- 1.96*sdSpline[start:stop], lty=2)
+      lines(BARESOIL, muSpline[start:stop]+ 1.96*sdSpline[start:stop], lty=2)
+      abline(h = 0)
+      
+      start = stop +1
+      stop = start+ length(FallPrec)-1
+      plot(FallPrec, muSpline[start:stop], lty=1,type = 'l',ylim = c(-6,5),ylab = "f(fallPrec)",main = "Spline for FallPrec")
+      lines(FallPrec, muSpline[start:stop]- 1.96*sdSpline[start:stop], lty=2)
+      lines(FallPrec, muSpline[start:stop]+ 1.96*sdSpline[start:stop], lty=2)
+      abline(h = 0)
+      
+      start = stop +1
+      stop = start+ length(SprTmax)-1
+      plot(SprTmax, muSpline[start:stop], lty=1,type = 'l',ylim = c(-6,5),ylab = "f(sprTMax)",main = "Spline for SprTmax")
+      lines(SprTmax, muSpline[start:stop]- 1.96*sdSpline[start:stop], lty=2)
+      lines(SprTmax, muSpline[start:stop]+ 1.96*sdSpline[start:stop], lty=2)
+      abline(h = 0)
+    ```
+</details>
+
+
+</details>
+
