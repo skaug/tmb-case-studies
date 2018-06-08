@@ -1,0 +1,139 @@
+```{r echo=FALSE, eval=TRUE, results='hide',include=FALSE}
+library(TMB)
+source("../utils.R")
+```
+
+
+## **Turning parameters on-and-off in the estimation** 
+In this example you learn to:
+
+* Turn off parameters in the estimation (fix at initial value)
+* Contrain parameters to have the same value
+* Put upper and lower bounds  on parameters in the function minimizer
+
+***
+#### Description of the practical situation
+We use a simple two-factor regression
+model (simulated data) with the first factor 
+having 4 levels (fixed effect)
+and the second factor having 10 levels (random effect):
+$$
+  y_k = \beta_{i_k} + u_{j_k} + e_k, \quad k=1,\dots,n
+$$
+where $u_j \sim N(0,\tau^2)$, $j=1,\ldots,10$ and $e_k  \sim  N(0,\sigma^2)$, $k=1,\ldots,n$.
+
+The purpose of the case study is to show how the `map`
+argument of `MakeADFun()` can be used to control which parameters
+should be estimated (or fixed at their initial values). This
+is useful in model comparison, where we want to compare
+the full model against various reduced models.
+
+Familiarity with random effects modelling in TMB is assumed in this case study.
+
+***
+
+#### Full code for example
+<details> <summary> R code</summary>
+```{r,echo=FALSE, comment=""}
+include_source("map_example.R", linesToInclud=c(1:999))
+```
+</details>
+<details> <summary> C++ code</summary>
+```{r,echo=FALSE, comment=""}
+include_source("map_example.cpp", linesToInclud=c(1:999))
+```
+</details>
+
+
+***
+#### Exercises
+
+<details> <summary>Read about the `map` argument under
+the Details section of the `?MakeADFun` help page.</summary>
+
+Key points:
+
+* Parameter entries with NAs in the factor are fixed.
+* Parameter entries with equal factor level are collected to a common value.
+
+```r
+map=list(beta=as.factor(c(NA,NA,1,1)))
+```
+
+</details>
+
+<details>
+<summary>Impose identical fixed effects: $\beta_1=\beta_2=\beta_3=\beta_4$. Verify that `opt$par` only has a single `beta` component. </summary>
+```{r,echo=FALSE, comment=""}
+include_source("map_example.R", linesToInclud=c(33:35))
+```
+</details>
+
+<details>
+  <summary>Two groups of fixed effects: $\beta_1=\beta_2$ and $\beta_3=\beta_4$.</summary>
+```{r,echo=FALSE, comment=""}
+include_source("map_example.R", linesToInclud=c(38:40))
+```
+
+* $\beta_1$ and $\beta_2$ are estimated together as a single value, and similarly for $\beta_3$ and $\beta_4$.
+
+* `opt$par` now should contain two `beta` components, one for
+each group.
+
+</details>
+
+<details>
+  <summary>Fix a parameter at its initial value: $\beta_1=0$.</summary>
+```{r,echo=FALSE, comment=""}
+include_source("map_example.R", linesToInclud=c(43:45))
+```
+
+* `opt$par` now should contain three `beta` components, corresponding
+to $\beta_2$, $\beta_3$ $\beta_4$.
+
+</details>
+
+<details>
+  <summary>Fix all $\beta$'s at their its initial values: 
+  $\beta_1=\beta_2=\beta_3=\beta_4=0$.</summary>
+```{r,echo=FALSE, comment=""}
+include_source("map_example.R", linesToInclud=c(48:50))
+```
+
+* `opt$par`  shouldn't contain any `beta` component.
+
+</details>
+
+<details>
+  <summary>Remove the random effects part of the model. </summary>
+
+* Need to remove both $u$ vector and associated standard 
+  deviation $\tau$.
+```{r,echo=FALSE, comment=""}
+include_source("map_example.R", linesToInclud=c(53:55))
+```
+
+* Comment: Could have removed `random="u"` from parameter list.
+
+</details>
+
+<details>
+  <summary>Put bounds on the parameters (of the full model):
+  $-10\leq \beta_i \leq 10$, $0\leq \sigma \leq 10$ , $0\leq \tau \leq 10$.  </summary>
+
+```{r,echo=FALSE, comment=""}
+include_source("map_example.R", linesToInclud=c(58:64))
+```
+
+</details>
+
+<details>
+  <summary>Remove the random effects (from full model), and modify the bounds correspondingly.</summary>
+```{r,echo=FALSE, comment=""}
+include_source("map_example.R", linesToInclud=c(67:70))
+```
+
+</details>
+
+
+***
