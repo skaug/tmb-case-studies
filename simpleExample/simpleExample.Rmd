@@ -1,0 +1,169 @@
+```{r echo=FALSE, eval=TRUE, results='hide',include=FALSE}
+library(TMB)
+library(mgcv)
+library(Matrix)
+source("../utils.R")
+source("simpleExample.R")
+```
+
+## **Simple example ** 
+In this example you learn:
+
+*How to set up a linear regression model in TMB.
+
+***
+#### Description of the practical situation
+In this example we model nitrogen ratios (NL) in a theets of a whale as a linear function of its age. We assume $\text{NL}_{age} \sim N(\mu_{age},\sigma^2)$, were: $\mu_{age} = \beta_0 + \beta_{age}age$.
+This example is found on page 27 in Zuur (2006).
+</details>
+
+<details> <summary> Summary of data.</summary>
+The data is the same used on page 27 in Zuur (2006).
+```{r,echo=FALSE, comment=""}
+TN = read.table("TeethNitrogen.txt",header = T)
+head(TN,5)
+```
+</details>
+
+
+***
+
+#### Full code for example
+<details> <summary> R code</summary>
+```{r,echo=FALSE, comment=""}
+include_source("simpleExample.R", linesToInclud=c(1:21))
+```
+</details>
+<details> <summary> C++ code</summary>
+```{r,echo=FALSE, comment=""}
+include_source("simpleExample.cpp", linesToInclud=c(1:999))
+```
+</details>
+
+
+
+***
+#### C++ code step-by-step
+<details>
+<summary>Read data from R</summary>
+```c++
+DATA_VECTOR(NL);
+DATA_VECTOR(x);
+
+```
+</details>
+
+<details>
+<summary>Read parameters from R</summary>
+```c++
+PARAMETER(beta0);
+PARAMETER(beta1);
+PARAMETER(logSigma);
+```
+</details>
+
+<details>
+<summary>Transform some of the parameters. </summary>
+```c++
+Type sigma= exp(logSigma);
+```
+</details>
+
+<details>
+<summary>Define the objective function 
+$\text{nll}=-\log P(\text{NL}|\pmb{\beta}, \sigma)$. </summary>
+```c++
+Type nll=0; //negative log-likelihood
+```
+</details>
+
+<details>
+<summary>Calculates the regression line </summary>
+```c++
+vector<Type> mu = beta0 + x*beta1;
+```
+</details>
+
+<details>
+<summary>Calculates the likelihood contribution from the observations </summary>
+```c++
+nll += -sum(dnorm(NL,mu,sigma,TRUE));
+```
+
+</details>
+
+<details>
+<summary>Return the objective function </summary>
+```c++
+return nll;
+```
+</details>
+
+***
+
+#### R code step-by-step
+<details>  
+<summary>Include the TMB library</summary>
+```r
+library(TMB)
+```
+</details>
+
+<details>  
+<summary>Compile and load the C++ code</summary>
+```r
+compile("simpleExample.cpp")
+dyn.load("simpleExample")
+```
+</details>
+
+<details>  
+<summary>Read data</summary>
+```r
+TN = read.table("TeethNitrogen.txt",header = T)
+```
+</details>
+
+<details>  
+<summary> Construct the data list which is given to TMB (C++)</summary>
+```r
+data = list()
+data$NL = TN$X15N[TN$Tooth=="Moby"]
+data$x = TN$Age[TN$Tooth=="Moby"]
+```
+</details>
+
+<details>  
+<summary> Construct the parameter list with initial values which is given to TMB (C++)</summary>
+```r
+parameters = list(
+beta0 = 0,
+beta1 = 0,
+logSigma = 0
+)
+```
+</details>
+
+<details>  
+<summary> Fit the model</summary>
+```r
+obj = MakeADFun(data,parameters,DLL = "simpleExample")
+opt = nlminb(obj$par,obj$fn, obj$gr)
+rep = sdreport(obj)
+```
+</details>
+
+
+***
+#### Exercise
+
+
+1. 
+<details>  
+<summary> Go trough the code and confirm you understand what is happening. Plot e.g. the estimated regression line with the data .</summary>
+    ```{r, fig.height=4, fig.width=4}
+        rep$par.fixed
+        plot(data$x,data$NL,xla = "Age", ylab ="NL")
+        abline(a = rep$par.fixed[1], b = rep$par.fixed[2])
+    ```
+</details>
