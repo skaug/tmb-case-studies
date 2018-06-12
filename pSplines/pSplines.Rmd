@@ -51,21 +51,21 @@ include_source("pSplines.cpp", linesToInclud=c(1:999))
 <details>  
   <summary>Read data from R</summary>
 ```c++
-    DATA_VECTOR(Y);
-    DATA_MATRIX(X);         // Covariates as columns
-    DATA_SPARSE_MATRIX(S);  // diag(S1,S2,S3,S4,S5), but not storing 
-                            // off-diagonal zeros
-    DATA_VECTOR(Sdims);     // Dimensions of S1,S2,S3,S4,S5
-    DATA_SPARSE_MATRIX(designMatrixForReport);
+    DATA_VECTOR(Y);       //The response
+    DATA_MATRIX(X);       //Design matrix for splines
+    DATA_SPARSE_MATRIX(S);//Penalization matrix diag(S1,S2,S3,S4,S5) without
+                          //storing off-diagonal zeros.
+    DATA_VECTOR(Sdims);   //Dimensions of S1,S2,S3,S4 and S5
+    DATA_SPARSE_MATRIX(designMatrixForReport);//Design matrix for report of splines
 ```
 </details>
 <details>
   <summary>Read parameters from R</summary>
 ```c++
-    PARAMETER(beta0);
-    PARAMETER_VECTOR(beta);
-    PARAMETER_VECTOR(log_lambda);
-    PARAMETER(log_sigma);
+    PARAMETER(beta0);       //Intercept
+    PARAMETER_VECTOR(beta); //Spline regression parameters
+    PARAMETER_VECTOR(log_lambda);//Penalization parameters
+    PARAMETER(log_sigma);   
 ```
 </details>
 <details>
@@ -86,7 +86,7 @@ include_source("pSplines.cpp", linesToInclud=c(1:999))
 <details>
 
   <summary>Calculate the the likelihood contribution from the spline (the penalilzation)</summary>
-  The negative log likelihood contribution from each spline is $0.5 \text{log} \lambda_i m_i -  \lambda_i \pmb{\beta}_i \pmb{S}_i \pmb{\beta}_i^T$, were $m_i$ is the number of regression parameters for the $i$th spline. 
+  The negative log likelihood contribution from each spline is $0.5 \text{log} \lambda_i m_i - 0.5 \lambda_i \pmb{\beta}_i \pmb{S}_i \pmb{\beta}_i^T$, were $m_i$ is the number of regression parameters for the $i$th spline. 
 ```c++
     vector<Type> S_beta = S*beta;
     nll -= 0.5*(log_lambda*Sdims).sum();  
