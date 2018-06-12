@@ -9,7 +9,8 @@ source("simpleExample.R")
 ## **Simple example ** 
 In this example you learn:
 
-*How to set up a linear regression model in TMB.
+* How to set up and fit a linear regression model in TMB.
+* Basis functionality of TMB
 
 ***
 #### Description of the practical situation
@@ -47,8 +48,8 @@ include_source("simpleExample.cpp", linesToInclud=c(1:999))
 <details>
 <summary>Read data from R</summary>
 ```c++
-DATA_VECTOR(NL);
-DATA_VECTOR(x);
+DATA_VECTOR(NL);  // Response
+DATA_VECTOR(x);   // Covariate
 
 ```
 </details>
@@ -70,7 +71,7 @@ Type sigma= exp(logSigma);
 </details>
 
 <details>
-<summary>Define the objective function 
+<summary>Define the objective function (where we will later store) 
 $\text{nll}=-\log P(\text{NL}|\pmb{\beta}, \sigma)$. </summary>
 ```c++
 Type nll=0; //negative log-likelihood
@@ -82,14 +83,17 @@ Type nll=0; //negative log-likelihood
 ```c++
 vector<Type> mu = beta0 + x*beta1;
 ```
+* This is a vector calculation. `vector<Type>` is the vector type.
 </details>
 
 <details>
 <summary>Calculates the likelihood contribution from the observations </summary>
 ```c++
-nll += -sum(dnorm(NL,mu,sigma,TRUE));
+nll -= sum(dnorm(NL,mu,sigma,true));
 ```
-
+* `dnorm(NL,mu,sigma,true)` is normal density (vectorized) in R-style notation.
+* Argument `true` returns log-density (rather than density).
+* `sum()` is adding the vector as an alternative to using a loop.
 </details>
 
 <details>
@@ -112,8 +116,8 @@ library(TMB)
 <details>  
 <summary>Compile and load the C++ code</summary>
 ```r
-compile("simpleExample.cpp")
-dyn.load("simpleExample")
+compile("simpleExample.cpp")  # Compile the C++ file
+dyn.load("simpleExample")     # Link C++ file into R session
 ```
 </details>
 
@@ -147,9 +151,9 @@ logSigma = 0
 <details>  
 <summary> Fit the model</summary>
 ```r
-obj = MakeADFun(data,parameters,DLL = "simpleExample")
-opt = nlminb(obj$par,obj$fn, obj$gr)
-rep = sdreport(obj)
+obj = MakeADFun(data,parameters,DLL = "simpleExample")  # Link data and model
+opt = nlminb(obj$par,obj$fn, obj$gr)   # Estimate parameters
+rep = sdreport(obj)                    # Evaluate standard deviations
 ```
 </details>
 
@@ -160,10 +164,31 @@ rep = sdreport(obj)
 
 1. 
 <details>  
-<summary> Go trough the code and confirm you understand what is happening. Plot e.g. the estimated regression line with the data .</summary>
+<summary> Go trough the code and confirm that you understand what is happening. Plot the fitted regression line together with the data.
+</summary>
     ```{r, fig.height=4, fig.width=4}
         rep$par.fixed
         plot(data$x,data$NL,xla = "Age", ylab ="NL")
         abline(a = rep$par.fixed[1], b = rep$par.fixed[2])
     ```
+</details>
+
+2. 
+<details>  
+<summary> Evaluate the objective function value 
+at $\beta_0=0.3$, $\beta_{age}=0.4$ and $\log(\sigma)=0.2$.
+</summary>
+```r
+obj$fn(c(0.3,0.4,0.2))
+```
+</details>
+
+3. 
+<details>  
+<summary> Evaluate the gradient (derivative with respect to
+the parameters) of the objective function at $\beta_0=0.3$, $\beta_{age}=0.4$ and $\log(\sigma)=0.2$.
+</summary>
+```r
+obj$gr(c(0.3,0.4,0.2))
+```
 </details>

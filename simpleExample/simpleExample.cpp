@@ -13,7 +13,7 @@ template<class Type>
   Type nll = 0;
   
   vector<Type> mu = beta0 + x*beta1;
-  nll += -sum(dnorm(NL,mu,sigma,TRUE));
+  nll -= sum(dnorm(NL,mu,sigma,true));
 
   return(nll);
 }
