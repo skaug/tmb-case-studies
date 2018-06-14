@@ -57,14 +57,31 @@ include_source("pSplines.cpp", linesToInclud=c(1:999))
                           //storing off-diagonal zeros.
     DATA_VECTOR(Sdims);   //Dimensions of S1,S2,S3,S4 and S5
 ```
+
+The `X` matrix combines the 5 design matrices for the 5 splines.
+$$
+X = \underbrace{
+                \left.\left( 
+                      \begin{array}{cc|cc|cc|cc}
+                             1.2&\cdots &4.3&\cdots &5.0&\cdots &\cdots&0.2\\
+                             -.2&\cdots &1.3&\cdots &2.0&\cdots &\cdots&9.1\\
+                             3.1&\cdots &0.0&\cdots &1.2&\cdots &\cdots&-20.1\\
+                             \vdots&&&&&&\vdots&\\
+                             4.2&\cdots &9.1&\cdots &2.3&\cdots &\cdots&1.3
+                      \end{array}
+                \right)\right\}
+              }_{\text{Design matrices for 5 splines stacked columnwise}} 
+              \,\text{ obserservations }
+              =\left[X_1,X_2,X_3,X_4,X_5\right]
+$$
 </details>
 <details>
   <summary>Read parameters from R</summary>
 ```c++
     PARAMETER(beta0);       //Intercept
-    PARAMETER_VECTOR(beta); //Spline regression parameters
+    PARAMETER_VECTOR(beta); //Spline regression parameters (5 splines stacked)
     PARAMETER_VECTOR(log_lambda);//Penalization parameters
-    PARAMETER(log_sigma);   
+    PARAMETER(log_sigma);   // log(SD) of measurement error
 ```
 </details>
 <details>
@@ -105,10 +122,12 @@ include_source("pSplines.cpp", linesToInclud=c(1:999))
     vector<Type> mu(Y.size());
     mu = beta0 + X*beta;
 ```
+
+* $X\beta=\sum_{j=1}^5X_j\beta_j$ gives the sum of all 5 splines (see above).
 </details>
 <details>
 
-<summary>Calculate the negative log likelihood $\sum_{i=1}^{n}\log P(Y|\sigma,\text{splines})$</summary>
+<summary>Calculate the negative log likelihood $\sum_{i=1}^{n}\log P(Y_i|\sigma,\text{splines})$</summary>
 ```c++
     for(int i=0; i<Y.size(); i++){
       nll -= dnorm(Y(i), mu(i), sigma, true);
@@ -150,13 +169,15 @@ include_source("pSplines.cpp", linesToInclud=c(1:999))
 ```
 </details>
 <details>  
-  <summary>Set up spline structure by using mgcv</summary>
+  <summary>Set up spline structure by using `mgcv`</summary>
 ```r
   gam_setup = gam(Richness ~ s(ROCK, bs = "cs") +
         s(LITTER, bs = "cs") + s(BARESOIL, bs = "cs") +
         s(FallPrec, bs = "cs") + s(SprTmax, bs = "cs"),
       data = Vegetation,fit=FALSE)
 ```
+* `fit=FALSE` is because you only want `mgcv` to set up the spline bases,
+   not fit the model.
 </details>
 <details>  
   <summary>Extract penalization matrices and combine them in a sparse block diagonal matrix</summary>
