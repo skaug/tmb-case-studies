@@ -11,29 +11,41 @@ Use
 
 Overview
 ----------------------
-`SAM`
-Stock assessment model
 
-`SPDExAR1`
-Spatio-temporal modeling
+**Model examples**
 
-`debug_tutorial`
-Runtime C++ debugging
+`simpleExample`
+Simple linear regression (your first TMB model)
+
+`pSplines`
+GAM model based on penalized splines
+
+
+***
+**TMB features**
 
 `map_example`
 Turning parameters on-and-off in the estimation
 
-`pSplines`
-GAM model based on P-splines
+`debug_tutorial`
+Runtime C++ debugging
 
-`spatialALK`
-Spatial age length key
+***
+**Spatial statistics**
 
 `spde`
 Spatial modeling with (approximate) Matern covariance functions
 
+`SPDExAR1`
+Spatio-temporal modeling
 
+***
 
+**Fisheries**
 
+`SAM`
+Stock assessment model
 
+`spatialALK`
+Spatial age-length-key model
 

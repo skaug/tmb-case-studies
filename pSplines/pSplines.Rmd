@@ -234,8 +234,9 @@ Understand this mechanism by looking at the following miniature example:
 <details>  
   <summary>R code to be run line by line</summary>
 ```r
+  library(Matrix)
   M1 = matrix(1:4,2,2)               # ordinary 2x2 matrix
-  M2 = matrix(5:9,2,2)               # ordinary 2x2 matrix
+  M2 = matrix(5:8,2,2)               # ordinary 2x2 matrix
   M_block_diag = .bdiag(list(M1,M2)) # Block diagonal (sparse) matrix
   data.class(M_block_diag)           # Check data.class
   print(M_block_diag)                # dots means 0 value
