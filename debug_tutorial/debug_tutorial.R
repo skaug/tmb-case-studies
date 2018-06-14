@@ -5,6 +5,6 @@ compile("debug_tutorial.cpp",flags="-O0 -g",DLLFLAGS="",libtmb=FALSE)
 
 dyn.load(dynlib("debug_tutorial"))
 
-dat <- list(X=matrix(1:6,nrow=3,ncol=2),y=1:5)
+dat <- list(X=matrix(1:6,nrow=3,ncol=2),y=11+1:5)
 pars <- list(a=0)
 obj <- MakeADFun(data=dat, parameters=pars, DLL="debug_tutorial")

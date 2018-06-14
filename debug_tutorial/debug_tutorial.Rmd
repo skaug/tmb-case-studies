@@ -214,4 +214,24 @@ the fact that C++ arrays are zero indexed),
 which explains why the crash occured.
 </details>
 
+<details> <summary> More about printing of variables, vectors, matrices, ...
+</summary>
+
+The above exercise did not show how to print the content of a vector say.
+To allow that we have written some special functions in the file `debug_print.hpp` which you can extend if necessary. Some examples 
+of printing:
+```r 
+(gdb) p print(y)
+12
+13
+14
+15
+16$1 = void
+(gdb) p print(X)
+1 4
+2 5
+3 6$2 = void```
+
+</details>
+
 ***

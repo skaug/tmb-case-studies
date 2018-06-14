@@ -1,6 +1,6 @@
 // Debugger (gdb) tutorial
 #include <TMB.hpp>
-
+#include "debug_print.hpp"
 
 template<class Type>
 Type objective_function<Type>::operator() ()
