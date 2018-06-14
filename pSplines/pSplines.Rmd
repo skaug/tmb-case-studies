@@ -60,7 +60,8 @@ include_source("pSplines.cpp", linesToInclud=c(1:999))
 
 The `X` matrix combines the 5 design matrices for the 5 splines.
 $$
-X = \underbrace{
+X =\left[X_1,X_2,X_3,X_4,X_5\right]
+= \underbrace{
                 \left.\left( 
                       \begin{array}{cc|cc|cc|cc}
                              1.2&\cdots &4.3&\cdots &5.0&\cdots &\cdots&0.2\\
@@ -71,8 +72,8 @@ X = \underbrace{
                       \end{array}
                 \right)\right\}
               }_{\text{Design matrices for 5 splines stacked columnwise}} 
-              \,\text{ obserservations }
-              =\left[X_1,X_2,X_3,X_4,X_5\right]
+              \,\text{ observations }
+              
 $$
 </details>
 <details>
