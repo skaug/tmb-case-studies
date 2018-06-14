@@ -23,6 +23,12 @@ Here, $f_1,\ldots,f_5$ are B splines, modelled as function of covariates `rock`,
 See page 63 in Zuur (2009) for a similar example with use of the same data.
 <details> <summary> "Penalizing the splines": how to get an appropriate level of smoothness?</summary>
 We let the coefficients of the $i$th spline have a multivariate normal distribution with precision matrix $\lambda_i \pmb{S}_i$, where $\lambda_i$ is a penalization parameter and $\pmb{S}_i$ is a penalization matrix extracted from the R-package `mgcv`. The matrices $\pmb{S}_i$ are singular, and hence the multivariate normal distributions are degenerate. However, when bringing in data through the likelihood, the (posterior) precission matrix becomes non-singular. See [Wood (2017)](https://books.google.no/books?id=JTkkDwAAQBAJ&printsec=frontcover&dq=generalized+additive+models+wood+2017&hl=no&sa=X&ved=0ahUKEwjp4o2sicHbAhWEFZoKHaHYBQ0Q6AEIJzAA#v=onepage&q=generalized%20additive%20models%20wood%202017&f=false) for details.
+
+```{r,echo=FALSE, comment="",fig.cap="Figure: Illustration of estimated splines with (red) and without (black) the penalization.", out.width = "300px"}
+knitr::include_graphics("withAndWithout.png")
+```
+
+
 </details>
 
 <details> <summary> Summary of the data.</summary>
@@ -322,4 +328,19 @@ Understand this mechanism by looking at the following miniature example:
 
 
 </details>
+
+
+3. Verify you get the same results using the mgcv package.
+  <details>
+    <summary>Solution</summary>
+    ```{r, fig.height=7, fig.width=7}
+        gam_setup = gam(Richness ~ s(ROCK, bs = "cs") +
+                          s(LITTER, bs = "cs") + s(BARESOIL, bs = "cs") +
+                          s(FallPrec, bs = "cs") + s(SprTmax, bs = "cs"),
+                        data = Vegetation,method = "ML",fit=TRUE) #Note that we use maximum likelihood method in the gam function.
+        par(mfrow=c(2,3))
+        plot(gam_setup)
+    ```
+</details>
+
 
