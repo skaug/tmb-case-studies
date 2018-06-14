@@ -1,6 +1,6 @@
 library(TMB)
-library(mgcv)
-library(Matrix)
+library(mgcv) #Use gam
+library(Matrix) #Use sparse matrices
 
 # Tutorial: sparse matrixes in R and TMB
 M = matrix(1:4,2,2)   # ordinary 2x2 matrix
@@ -16,7 +16,7 @@ compile("pSplines.cpp")
 dyn.load(dynlib("pSplines"))
 #----------------------------------------
 
-#Set up spline structure by using mgcw---
+#Set up spline structure by using mgcv---
 gam_setup = gam(Richness ~ s(ROCK, bs = "cs") +
       s(LITTER, bs = "cs") + s(BARESOIL, bs = "cs") +
       s(FallPrec, bs = "cs") + s(SprTmax, bs = "cs"),
@@ -34,12 +34,6 @@ S_combined = .bdiag(S_list)         # join S's in sparse matrix
 Sdims = unlist(lapply(S_list,nrow)) # Find dimension of each S
 #----------------------------------------
 
-#Define data object which is given to TMB---
-data = list(Y = Vegetation$Richness, # Response
-            X = gam_setup$X[,-1],  # Design matrix, without intercept
-            S = S_combined,      # Combined penalty matrix
-            Sdims = Sdims)
-#-------------------------------------------
 
 #For report, used for constructing plots----
 ROCK=seq(min(Vegetation$ROCK),max(Vegetation$ROCK),by = 1)
@@ -55,7 +49,14 @@ fallReport = PredictMat(gam_setup$smooth[[4]],data = data.frame(FallPrec))
 sprReport = PredictMat(gam_setup$smooth[[5]],data = data.frame(SprTmax))
 
 designMatrixForReport = list(rockReport,litterReport,soilReport,fallReport,sprReport)
-data$designMatrixForReport = .bdiag(designMatrixForReport)
+#-------------------------------------------
+
+#Define data object which is given to TMB---
+data = list(Y = Vegetation$Richness, # Response
+            X = gam_setup$X[,-1],  # Design matrix, without intercept
+            S = S_combined,      # Combined penalty matrix
+            Sdims = Sdims,
+            designMatrixForReport = .bdiag(designMatrixForReport))
 #-------------------------------------------
 
 #Define parameter object given to TMB-------
