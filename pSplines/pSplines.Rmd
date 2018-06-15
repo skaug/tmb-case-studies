@@ -62,6 +62,8 @@ include_source("pSplines.cpp", linesToInclud=c(1:999))
     DATA_SPARSE_MATRIX(S);//Penalization matrix diag(S1,S2,S3,S4,S5) without
                           //storing off-diagonal zeros.
     DATA_VECTOR(Sdims);   //Dimensions of S1,S2,S3,S4 and S5
+    DATA_INTEGER(flag);     //Used for calculating the normalizing constant of the prior for spline regression coefficients on the R side
+
 ```
 
 The `X` matrix combines the 5 design matrices for the 5 splines.
@@ -107,18 +109,25 @@ $$
 </details>
 <details>
 
-  <summary>Calculate the the likelihood contribution from the spline (the penalilzation)</summary>
-  The negative log likelihood contribution from each spline is $0.5 m_i  \log\lambda_i - 0.5 \lambda_i \pmb{\beta}_i \pmb{S}_i \pmb{\beta}_i^T$, were $m_i=\dim(\beta_i)=\dim(S_i)$. 
+  <summary>Calculate the prior contribution of the spline (the penalilzation)</summary>
+  We use the GMRF() function in C++ for calculation of the prior contribution, note that we calculate the normalizing constant on the R side since S does not have full rank. 
 ```c++
-    vector<Type> S_beta = S*beta;
-    nll -= 0.5*(log_lambda*Sdims).sum();  
-    int counter = 0;
-    for(int i=0;i<Sdims.size(); i++){
-      for(int j=0;j<Sdims(i); j++){
-        nll -= -0.5*lambda(i)*beta(counter)*S_beta(counter);
-        counter++;
-      }
+  vector<Type> beta_sqrt_lambda=beta;
+  int k=0;
+  for(int i=0;i<lambda.size();i++){
+    for(int j=0;j<Sdims(i);j++){
+      beta_sqrt_lambda(k) *= sqrt(lambda(i));
+      k++;
     }
+  }
+  nll += GMRF(S,false)(beta_sqrt_lambda);
+```
+</details>
+<details>
+
+  <summary>Return the prior for the spline regression coefficents on request </summary>
+```c++
+  if (flag == 0) return nll;
 ```
 </details>
 <details>
@@ -193,7 +202,6 @@ $$
   S_BARESOIL = gam_setup$smooth[[3]]$S[[1]]
   S_FallPrec = gam_setup$smooth[[4]]$S[[1]]
   S_SprTmax = gam_setup$smooth[[5]]$S[[1]]
-  
   S_list = list(S_ROCK,S_LITTER,S_BARESOIL,S_FallPrec,S_SprTmax)
   S_combined = .bdiag(S_list)         # join S's in sparse matrix
   Sdims = unlist(lapply(S_list,nrow)) # Find dimension of each S
@@ -205,7 +213,8 @@ $$
 data = list(Y = Vegetation$Richness, # Response
             X = gam_setup$X[,-1],  # Design matrix, without intercept
             S = S_combined,      # Combined penalty matrix
-            Sdims = Sdims)
+            Sdims = Sdims,
+            flag = 1)
 ```
 </details>
 <details>  
@@ -223,6 +232,7 @@ data = list(Y = Vegetation$Richness, # Response
   <summary>Fit the model</summary>
 ```r
   obj = MakeADFun(data = data, parameters = par,random="beta",DLL = "pSplines")
+  obj <- normalize(obj, flag="flag")  #Inform obj that we calculate the prior normalizing constant in R. 
   opt = nlminb(obj$par,obj$fn,obj$gr)
   rep = sdreport(obj)
 ```

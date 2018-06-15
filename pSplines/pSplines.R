@@ -56,7 +56,8 @@ data = list(Y = Vegetation$Richness, # Response
             X = gam_setup$X[,-1],  # Design matrix, without intercept
             S = S_combined,      # Combined penalty matrix
             Sdims = Sdims,
-            designMatrixForReport = .bdiag(designMatrixForReport))
+            designMatrixForReport = .bdiag(designMatrixForReport),
+            flag = 1)
 #-------------------------------------------
 
 #Define parameter object given to TMB-------
@@ -70,6 +71,7 @@ par = list(
 
 #Fit model----------------------------------
 obj = MakeADFun(data = data, parameters = par,random="beta",DLL = "pSplines")
+obj <- normalize(obj, flag="flag")
 opt = nlminb(obj$par,obj$fn,obj$gr)
 rep = sdreport(obj)
 #-------------------------------------------
