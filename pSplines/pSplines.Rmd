@@ -10,8 +10,8 @@ source("pSplines.R")
 ## **GAM model based on P-splines**
 In this example you learn:
 
-* How to estimate a model with P-splines (penalized B-splines) in TMB.
-* How to set up the the spline part of the model in the `mgcv` package. 
+* How to estimate a model with P-splines (penalized splines) in TMB.
+* How to set up the spline part of the model in the `mgcv` package. 
 * How to extract standard errors of a spline in TMB.
 * How to input "complex datastructures" from R to C++ via _sparse matrices_.
 
@@ -19,10 +19,10 @@ In this example you learn:
 #### Description of the practical situation
 Let $Y(d)$ be the biodiversity, as given by the variable `Richness` in the data. We assume that $Y(d) \sim N(\mu,\sigma^2)$, were 
 $$\mu = \beta_0 +  f_1(rock) +f_2(litter) + f_3(soil) + f_4(fallPrec) + f_5(sprTmax).$$
-Here, $f_1,\ldots,f_5$ are B splines, modelled as function of covariates `rock`, `litter`,... (see data summary below).
+Here, $f_1,\ldots,f_5$ are splines, modelled as function of covariates `rock`, `litter`,... (see data summary below).
 See page 63 in Zuur (2009) for a similar example with use of the same data.
 <details> <summary> "Penalizing the splines": how to get an appropriate level of smoothness?</summary>
-We let the coefficients of the $i$th spline have a multivariate normal distribution with precision matrix $\lambda_i \pmb{S}_i$, where $\lambda_i$ is a penalization parameter and $\pmb{S}_i$ is a penalization matrix extracted from the R-package `mgcv`. The matrices $\pmb{S}_i$ are singular, and hence the multivariate normal distributions are degenerate. However, when bringing in data through the likelihood, the (posterior) precission matrix becomes non-singular. See [Wood (2017)](https://books.google.no/books?id=JTkkDwAAQBAJ&printsec=frontcover&dq=generalized+additive+models+wood+2017&hl=no&sa=X&ved=0ahUKEwjp4o2sicHbAhWEFZoKHaHYBQ0Q6AEIJzAA#v=onepage&q=generalized%20additive%20models%20wood%202017&f=false) for details.
+We let the coefficients ($\beta$) of the $i$th spline have a multivariate normal distribution with precision matrix $\lambda_i \pmb{S}_i$, where $\lambda_i$ is a penalization parameter and $\pmb{S}_i$ is a penalization matrix extracted from the R-package `mgcv`. The matrices $\pmb{S}_i$ are singular, and hence the multivariate normal distributions are degenerate. However, when bringing in data through the likelihood, the (posterior) precission matrix becomes non-singular. See [Wood (2017)](https://books.google.no/books?id=JTkkDwAAQBAJ&printsec=frontcover&dq=generalized+additive+models+wood+2017&hl=no&sa=X&ved=0ahUKEwjp4o2sicHbAhWEFZoKHaHYBQ0Q6AEIJzAA#v=onepage&q=generalized%20additive%20models%20wood%202017&f=false) for details.
 
 ```{r,echo=FALSE, comment="",fig.cap="Figure: Illustration of estimated splines with (red) and without (black) the penalization.", out.width = "300px"}
 knitr::include_graphics("withAndWithout.png")
@@ -79,7 +79,6 @@ X =\left[X_1,X_2,X_3,X_4,X_5\right]
                 \right)\right\}
               }_{\text{Design matrices for 5 splines stacked columnwise}} 
               \,\text{ observations }
-              
 $$
 </details>
 <details>
@@ -87,7 +86,7 @@ $$
 ```c++
     PARAMETER(beta0);       //Intercept
     PARAMETER_VECTOR(beta); //Spline regression parameters (5 splines stacked)
-    PARAMETER_VECTOR(log_lambda);//Penalization parameters
+    PARAMETER_VECTOR(log_lambda);// Log penalization parameters
     PARAMETER(log_sigma);   // log(SD) of measurement error
 ```
 </details>
@@ -109,7 +108,7 @@ $$
 <details>
 
   <summary>Calculate the the likelihood contribution from the spline (the penalilzation)</summary>
-  The negative log likelihood contribution from each spline is $0.5 \text{log} \lambda_i m_i - 0.5 \lambda_i \pmb{\beta}_i \pmb{S}_i \pmb{\beta}_i^T$, were $m_i$ is the number of regression parameters for the $i$th spline. 
+  The negative log likelihood contribution from each spline is $0.5 m_i  \log\lambda_i - 0.5 \lambda_i \pmb{\beta}_i \pmb{S}_i \pmb{\beta}_i^T$, were $m_i=\dim(\beta_i)=\dim(S_i)$. 
 ```c++
     vector<Type> S_beta = S*beta;
     nll -= 0.5*(log_lambda*Sdims).sum();  
