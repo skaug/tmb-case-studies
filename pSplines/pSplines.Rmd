@@ -352,4 +352,50 @@ Understand this mechanism by looking at the following miniature example:
     ```
 </details>
 
+4. Include `fallPrec` as a linear effect.
+  <details>
+    <summary>Solution</summary>
+    On the R side we change the gam_setup:
+    ```r
+      gam_setup = gam(Richness ~ FallPrec+s(ROCK, bs = "cs") +
+                        s(LITTER, bs = "cs") + s(BARESOIL, bs = "cs") +
+                         s(SprTmax, bs = "cs"),
+                      data = Vegetation,fit=FALSE)
+    ```
+    and provide TMB with separate design matrices for spline and linear covariates:
+    ```r
+    data = list(Y = Vegetation$Richness, # Response
+            #X = gam_setup$X[,-1],
+            Xlinear = gam_setup$X[,c(1,2)],  # Design matrix for intercept and linear effect
+            Xsplines = gam_setup$X[,-c(1,2)],  # Design matrix, without intercept and linear effect
+            S = S_combined,      # Combined penalty matrix
+            Sdims = Sdims,
+            designMatrixForReport = .bdiag(designMatrixForReport),
+            flag = 1)
+    ```
+    and modify the parameters:
+    ```r
+    par = list(
+          #beta0 = 0,  
+          #beta = rep(0,sum(Sdims)),
+          betaLinear = c(0,0),  # Intercept and linear effect
+          betaSplines = rep(0,sum(Sdims)),  # Spline coefficients
+          log_lambda = rep(rep(0,length(Sdims))), #Log spline penalization coefficients
+          log_sigma = 0 
+    )
+    ```
+
+    On the C++ side we include the two design matrices:
+    ```c++
+      //DATA_MATRIX(X);
+      DATA_MATRIX(Xsplines);       //Design matrix for splines
+      DATA_MATRIX(Xlinear);       //Design matrix for linear effects and intercept
+    ```
+    and modify how the linear predictor is calculated:
+    ```c++
+      //mu = beta0 + X*beta;
+      mu = Xlinear*betaLinear;
+      mu += Xsplines*betaSplines;
+    ```
+</details>
 
