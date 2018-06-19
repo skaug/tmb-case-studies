@@ -71,7 +71,7 @@ par = list(
 
 #Fit model----------------------------------
 obj = MakeADFun(data = data, parameters = par,random="beta",DLL = "pSplines")
-obj <- normalize(obj, flag="flag")
+#obj <- normalize(obj, flag="flag")
 opt = nlminb(obj$par,obj$fn,obj$gr)
 rep = sdreport(obj)
 #-------------------------------------------

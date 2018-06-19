@@ -27,17 +27,16 @@ Type objective_function<Type>::operator() (){
   //Calculate the objective function--
   Type nll=0;
 
-  vector<Type> beta_sqrt_lambda=beta;
-  int k=0;
-  for(int i=0;i<lambda.size();i++){
-    for(int j=0;j<Sdims(i);j++){
-      beta_sqrt_lambda(k) *= sqrt(lambda(i));
-      k++;
-    }
-  }
-  nll += GMRF(S,false)(beta_sqrt_lambda);
-  if(flag ==0)return(nll);
 
+  int k=0;  // Counter
+  for(int i=0;i<Sdims.size();i++){
+    int m_i = Sdims(i);
+    SparseMatrix<Type> S_i = S.block(k,k,k+m_i,k+m_i);  // Recover Si
+    vector<Type> beta_i = beta.segment(k,k+m_i);       // Recover betai
+    nll += -0.5*m_i*log_lambda(i) + lambda(i)*GMRF(S_i,false)(beta_i);
+    k++;
+  }
+  
   vector<Type> mu(Y.size());
   mu = beta0 + X*beta;
   for(int i=0; i<Y.size(); i++){

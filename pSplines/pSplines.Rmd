@@ -7,7 +7,7 @@ source("pSplines.R")
 ```
 
 
-## **GAM model based on P-splines**
+## **GAM model based on P-splines (UNDER MAINTAINANCE!!!!!!)**
 In this example you learn:
 
 * How to estimate a model with P-splines (penalized splines) in TMB.
