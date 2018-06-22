@@ -116,3 +116,4 @@ plot(SprTmax, muSpline[start:stop], lty=1,type = 'l',ylim = c(-6,5),ylab = "f(sp
 lines(SprTmax, muSpline[start:stop]- 1.96*sdSpline[start:stop], lty=2)
 lines(SprTmax, muSpline[start:stop]+ 1.96*sdSpline[start:stop], lty=2)
 abline(h = 0)
+

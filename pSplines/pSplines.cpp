@@ -2,7 +2,9 @@
 template<class Type>
 Type objective_function<Type>::operator() (){
   using namespace density;
-
+  using namespace Eigen; //Needed for utilisation of sparse structures
+  
+  
   //Read data from R------------------
   DATA_VECTOR(Y);       //The response
   DATA_MATRIX(X);       //Design matrix for splines
@@ -27,14 +29,13 @@ Type objective_function<Type>::operator() (){
   //Calculate the objective function--
   Type nll=0;
 
-
   int k=0;  // Counter
   for(int i=0;i<Sdims.size();i++){
     int m_i = Sdims(i);
-    SparseMatrix<Type> S_i = S.block(k,k,k+m_i,k+m_i);  // Recover Si
-    vector<Type> beta_i = beta.segment(k,k+m_i);       // Recover betai
-    nll += -0.5*m_i*log_lambda(i) + lambda(i)*GMRF(S_i,false)(beta_i);
-    k++;
+    vector<Type> beta_i = beta.segment(k,m_i);       // Recover betai
+    SparseMatrix<Type> S_i = S.block(k,k,m_i,m_i);  // Recover Si
+    nll -= Type(0.5)*m_i*log_lambda(i) - 0.5*lambda(i)*GMRF(S_i).Quadform(beta_i);
+    k += m_i;
   }
   
   vector<Type> mu(Y.size());
