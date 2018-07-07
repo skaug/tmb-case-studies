@@ -15,7 +15,8 @@ Overview
 **Model examples**
 
 `simpleExample`
-Simple linear regression (your first TMB model)
+Simple linear regression (your first TMB model). Contains
+some basic C++ intro.
 
 `pSplines`
 GAM model based on penalized splines
@@ -48,4 +49,17 @@ Stock assessment model
 
 `spatialALK`
 Spatial age-length-key model
+
+***
+
+**Wish list**
+
+User contributions are welcome. Topics
+of interest are
+
+`Figthing with the C++ compiler`
+An example of how to use casting to 
+combine `vector`, `matrix` and `array`
+objects in various variants. 
+
 

@@ -11,15 +11,16 @@ In this example you learn:
 
 * How to set up and fit a linear regression model in TMB.
 * Basis functionality of TMB
+* Some useful C++ details if you have little experience with C++
 
 ***
 #### Description of the practical situation
-In this example we model nitrogen ratios (NL) in a theets of a whale as a linear function of its age. We assume $\text{NL}_{age} \sim N(\mu_{age},\sigma^2)$, were: $\mu_{age} = \beta_0 + \beta_{age}age$.
+Nitrogen ratios (NL) in whale theets are assumed to be a linear function of the age of the individual. The model is $\text{NL}_{age} \sim N(\mu_{age},\sigma^2)$, where $\mu_{age} = \beta_0 + \beta_{age}age$.
 This example is found on page 27 in Zuur (2006).
 </details>
 
-<details> <summary> Summary of data.</summary>
-The data is the same used on page 27 in Zuur (2006).
+<details> <summary> Overview of data</summary>
+The five first records:
 ```{r,echo=FALSE, comment=""}
 TN = read.table("TeethNitrogen.txt",header = T)
 head(TN,5)
@@ -66,16 +67,23 @@ PARAMETER(logSigma);
 <details>
 <summary>Transform some of the parameters. </summary>
 ```c++
-Type sigma= exp(logSigma);
+Type sigma = exp(logSigma);
 ```
+* For numerical and statistical reasons we let the underlying parameter be
+   `logSigma`.
+* In a C++ every variable must explicitely be given in a type. In TMB 
+  all variables should as a general rule have type `Type` (for a long and    
+  compicated reason). Integers of `int` are also commonly used as counting
+  variables and indices.
 </details>
 
 <details>
 <summary>Define the objective function (where we will later store) 
 $\text{nll}=-\log P(\text{NL}|\pmb{\beta}, \sigma)$. </summary>
 ```c++
-Type nll=0; //negative log-likelihood
+Type nll = 0; //negative log-likelihood
 ```
+* Initialize to 0.
 </details>
 
 <details>
@@ -83,7 +91,9 @@ Type nll=0; //negative log-likelihood
 ```c++
 vector<Type> mu = beta0 + x*beta1;
 ```
-* This is a vector calculation. `vector<Type>` is the vector type.
+* This is a vectorized calculation. 
+* `vector<Type>` is the vector type in TMB.
+  (Similary you can have `matrix<Type>` and `array<Type>`)
 </details>
 
 <details>
@@ -94,6 +104,8 @@ nll -= sum(dnorm(NL,mu,sigma,true));
 * `dnorm(NL,mu,sigma,true)` is normal density (vectorized) in R-style notation.
 * Argument `true` returns log-density (rather than density).
 * `sum()` is adding the vector as an alternative to using a loop.
+* `-=` subtracts the right hand side from `nll` (which we have initialized to    0).
+
 </details>
 
 <details>
@@ -101,6 +113,7 @@ nll -= sum(dnorm(NL,mu,sigma,true));
 ```c++
 return nll;
 ```
+* At this point we return the objective function value to R.
 </details>
 
 ***
@@ -122,7 +135,7 @@ dyn.load("simpleExample")     # Link C++ file into R session
 </details>
 
 <details>  
-<summary>Read data</summary>
+<summary>Read data from file</summary>
 ```r
 TN = read.table("TeethNitrogen.txt",header = T)
 ```
@@ -135,10 +148,13 @@ data = list()
 data$NL = TN$X15N[TN$Tooth=="Moby"]
 data$x = TN$Age[TN$Tooth=="Moby"]
 ```
+* Elements of this list are picked up on the C++ side as for instance
+  `DATA_VECTOR(NL)`.
+* Names and order in the list must match exactly the C++ side.
 </details>
 
 <details>  
-<summary> Construct the parameter list with initial values which is given to TMB (C++)</summary>
+<summary> Construct the parameter list of initial values for parameters (C++)</summary>
 ```r
 parameters = list(
 beta0 = 0,
@@ -146,12 +162,26 @@ beta1 = 0,
 logSigma = 0
 )
 ```
+* Serves the purpose of defining (on the R side) actually what the parameters in the model are.
+* Names and order in the list must match exactly the C++ side (`PARAMETER` objects).
+* The numerical values given are for practical purposes the initial values given to the function minimizer (eg. `nlminb`).  
+
+</details>
+
+<details>  
+<summary> Sets up the model (key step)</summary>
+```r
+obj = MakeADFun(data,parameters,DLL = "simpleExample")  # Link data and model
+```
+* Pulls together data, parameters, and C++ code (via `DLL`)
+* Sets up data structures internally, and may take time for large models (not this one).
+* Runs the objective function, and may crash R if your objective function for instance tries to access an array outside the legal range.
+* Read the help page `help(MakeADFun)` to learn more features. 
 </details>
 
 <details>  
 <summary> Fit the model</summary>
 ```r
-obj = MakeADFun(data,parameters,DLL = "simpleExample")  # Link data and model
 opt = nlminb(obj$par,obj$fn, obj$gr)   # Estimate parameters
 rep = sdreport(obj)                    # Evaluate standard deviations
 ```

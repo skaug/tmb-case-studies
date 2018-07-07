@@ -1,7 +1,7 @@
 library(TMB)
 
 compile("simpleExample.cpp")
-dyn.load("simpleExample")
+dyn.load(dynlib("simpleExample"))
 
 TN = read.table("TeethNitrogen.txt",header = T)
 
