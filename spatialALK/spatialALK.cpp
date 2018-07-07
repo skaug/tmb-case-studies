@@ -15,6 +15,7 @@ Type objective_function<Type>::operator() ()
   DATA_STRUCT(spde,spde_t); //Three matrices needed for representing the spatial field
   DATA_SPARSE_MATRIX(A);  //Matrix for interpolating points witin triangles
   DATA_INTEGER(flag); // if flag=0 the prior for x is calculated
+  DATA_INTEGER(plusGroup); //Age of plus group
   //-----------------------
 
   PARAMETER_VECTOR(beta0); //Intercepts
@@ -86,7 +87,7 @@ Type objective_function<Type>::operator() ()
   //---------------------------------------------------------
 
   //Add the likelihood contribution-----------------------------
-  vector<Type> prob(7);
+  vector<Type> prob(plusGroup+1);
   Type sum;
   for(int i=0;i<antObs; ++i){
 
@@ -98,27 +99,9 @@ Type objective_function<Type>::operator() ()
     prob(5) = nu5(i)/(1+sum);
     prob(6) = 1/(1+sum);
 
-    if(age(i)==1){
-      nll += -log(prob(1));
-    }
-    if(age(i)==2){
-      nll += -log(prob(2));
-    }
-    if(age(i)==3){
-      nll += -log(prob(3));
-    }
-    if(age(i)==4){
-      nll += -log(prob(4));
-    }
-    if(age(i)==5){
-      nll += -log(prob(5));
-    }
-    if(age(i)>5){
-      nll += -log(prob(6));
-    }
+    nll += -log(prob(CppAD::Integer(age(i))));
   }
   //--------------------------------------------------------------------
-
 
   //Report the splines for length effect---------------
   vector<Type> repLength = designMatrixForReport* betaLength;

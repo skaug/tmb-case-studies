@@ -12,6 +12,7 @@ dyn.load(dynlib("spatialALK"))
 #Read data---------------------------------------------
 load("cod2015Q1.RData")
 plusGroup = 6;
+ca_hh$Age[ca_hh$Age>plusGroup] = plusGroup
 
 polygons <- readOGR("Roundfish_shapefiles")
 data(countriesHigh)
@@ -74,7 +75,8 @@ data = list(
   X = .bdiag(X_list), # Design matrix, without intercept
   designMatrixForReport = .bdiag(lengthReport_list),
   A =  A,
-  spde = spde$param.inla[c("M0","M1","M2")]
+  spde = spde$param.inla[c("M0","M1","M2")],
+  plusGroup = plusGroup
 )
 
 

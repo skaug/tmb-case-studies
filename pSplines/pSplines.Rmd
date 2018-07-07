@@ -7,7 +7,7 @@ source("pSplines.R")
 ```
 
 
-## **GAM model based on P-splines (UNDER MAINTAINANCE!!!!!!)**
+## **GAM model based on P-splines**
 In this example you learn:
 
 * How to estimate a model with P-splines (penalized splines) in TMB.
@@ -110,18 +110,25 @@ $$
 <details>
 
   <summary>Calculate the prior contribution of the spline (the penalilzation)</summary>
-  We use the GMRF() function in C++ for calculation of the prior contribution, note that we calculate the normalizing constant on the R side since S does not have full rank. 
+When passing data from R we have stacked the five $S$ matrices (and similarly the $\beta$ vectors), 
+and now we retrieve them in order to add the contribution to the objective function from all five splines.
 ```c++
-  vector<Type> beta_sqrt_lambda=beta;
-  int k=0;
-  for(int i=0;i<lambda.size();i++){
-    for(int j=0;j<Sdims(i);j++){
-      beta_sqrt_lambda(k) *= sqrt(lambda(i));
-      k++;
-    }
+  int k=0;  // Counter
+  for(int i=0;i<Sdims.size();i++){
+    int m_i = Sdims(i);
+    vector<Type> beta_i = beta.segment(k,m_i);       // Retrieve beta_i
+    SparseMatrix<Type> S_i = S.block(k,k,m_i,m_i);   // Retrieve S_i
+    nll -= Type(0.5)*m_i*log_lambda(i) - 0.5*lambda(i)*GMRF(S_i).Quadform(beta_i);
+    k += m_i;
   }
-  nll += GMRF(S,false)(beta_sqrt_lambda);
 ```
+  
+* `beta.segment(k,m_i)` returns elements $\beta_k,\beta_{k+1},\ldots,\beta_{k+m_i}$.  
+* `S.block(k,k,m_i,m_i)` returns submatrix of $S$ with upper left corner $(k,k)$ and lower
+  right corner $(k+m_i,k+m_i)$.
+* The contribution from the $i$th spline is $0.5m_i\lambda_i - 0.5\lambda_i\beta_i^T S_i \beta_i$.
+* `GMRF(S_i).Quadform(beta_i)` is the quadratic form $\beta_i^T S_i \beta_i$ (it is hard
+to get the compiler to accept the  code `beta_i*(S_i*beta_i)  `).
 </details>
 <details>
 
