@@ -1,0 +1,172 @@
+```{r echo=FALSE, eval=TRUE, results='hide',include=FALSE}
+library(TMB)
+library(tmbstan)
+source("../utils.R")
+#source("bayesian.R")
+```
+
+## **Bayesian analysis with `tmbstan`**
+In this example you learn:
+
+* How to set up a Bayesian model (with priors on parameters) in TMB
+* Use package `tmbstan` to draw MCMC samples from a TMB model
+* Compare integration methods: Laplace approximation versus MCMC on the same model with no additional effort
+* Test the accuracy of the Laplace approximation to the marginal likelihood
+* Write a C++ function that is called by the TMB objective function
+
+***
+#### Description of the practical situation
+The model itself is not as important, but it is a binomial GLMM with
+three levels of crossed random effects. This particular analysis comes from
+the paper Monnahan and Kristensen (2018), where you can find a more
+detailed description of the model and analysis, as well as further
+resources.
+
+`tmbstan` is an R-package which links `TMB` to the software [STAN](http://mc-stan.org/) which does Hamiltonian Monte Carlo (HMC). With `tmbstan` you can sample from any TMB objective function (then interpreted as an un-normalized posterior). It requires a fully Bayesian perspective, and typically involves putting priors on all parameters. You can still use the Laplace approximation, which opens up for two different configurations:
+
+1. Sample both parameters and latent random variables (the random effects) with HMC
+2. Integrate out latent random variables using the Laplace approximation, while sampling parameters with HMC
+
+More details about these options are given below.
+
+</details>
+<details> <summary> Comparing Laplace approximation and MCMC</summary>
+The Laplace approximation (LA) is 
+used by TMB to  approximate the marginal likelihood (i.e., the
+likelihood with the random effects integrated out). Typically, there is no
+easy way to test how valid the approximation is. Here, we demonstrate how
+to do this by integrating the model in the two different ways mentioned above: (1) with MCMC sampling for all parameters, 
+and (2) with MCMC for fixed effects but LA for
+random effects. That is, the MCMC algorithm samples from the approximated
+marginal posterior. If the LA is accurate, then there will be no difference
+in the posterior distribution for the *fixed effects* (parameters). 
+We cannot directly compare the random effects.
+
+Thus, if the distribution is the same we have confidence that the LA is
+accurate. If not, this suggests an inaccuracy in the LA and caution should
+be taken when using it for inference. In the case of this model, we quickly
+see that the LA version produces very different results for the fixed
+effects.
+
+Another interesting note is that while the LA version mixes better in the
+sense that it produces higher effective samples, it takes much longer to
+run and thus the full MCMC integration should be prefered from an
+efficiency standpoint as well (see table S2 in Monnahan and Kristensen
+2018).
+</details>
+
+***
+#### Full code for example
+<details> <summary> R code</summary>
+```{r,echo=FALSE, comment=""}
+include_source("bayesian.R", linesToInclud=c(1:3, 10:999))
+```
+</details>
+<details> <summary> C++ code</summary>
+```{r,echo=FALSE, comment=""}
+include_source("bayesian.cpp", linesToInclud=c(1:999))
+```
+</details>
+
+***
+#### C++ code step-by-step
+
+* Reading in data and parameters from R is skipped (see other examples)
+
+<details>
+  <summary>Writing a C++ function for the Cauchy density</summary>
+
+* The Cauchy density is not available in TMB. The density is given as: 
+  $$ f(x;mean,\gamma) = \frac{1}{\pi\gamma\left[\left(\frac{x-mean}{\gamma}\right)\right]}$$
+
+* The following code implements $f(x;mean,\gamma)$, and serves as an example of how you can write your own C++ functions:
+```c++
+    template<class Type>   // See explanation below
+    Type dcauchy(Type x, Type mean, Type shape, int give_log=0){
+    Type logres = 0.0;
+    logres-= log(M_PI);   // Constant "pi
+    logres-= log(shape);  // Parameter "gamma"
+    // Note, this is unstable and should switch to log1p formulation
+    logres-= log(1 + pow( (x-mean)/shape ,2));  // Main part of log-density
+    if(give_log) return logres; else return exp(logres);  // Return value
+```
+  * The first code line `template<class Type>` gives the data type returned by the function. In this case it is `Type`, which is the TMB scalar type. 
+  * Now, `dcauchy()` can be used as any built in density in the objective function
+```c++
+  nlp-= dcauchy(yearInterceptSD2, Type(0), Type(5));
+```
+</details>
+
+<details>
+  <summary>The objective function (return) value in Bayesian models</summary>
+
+  * In a fully Bayesian model the return value should be 
+  the negative log (un-normalized) posterior. 
+
+  * In pratice we collect all contributions from parameter priors (stored in variable `nlp`) and all likelihood contributions (in variable `nll`) separately, and 
+  return their sum at the end.
+```c++
+  Type nlp=0.0; // negative log prior
+  Type nll=0.0; // negative log likelihood
+```
+</details>
+
+<details>
+  <summary>Setting priors on parameters</summary>
+
+  * As noted above, a fully  Bayesian model requires priors on all parameters (fixed effects, variances, correlations, etc.)
+
+  * This can be done explicitely:
+```c++
+  nlp -= dcauchy(yearInterceptSD2, Type(0), Type(5));
+  nlp -= dcauchy(plantInterceptSD2, Type(0), Type(5));
+  nlp -= dcauchy(plantSlopeSD2, Type(0), Type(5));
+  nlp -= dnorm(slope, Type(0.0), Type(10.0));
+  nlp -= dnorm(intercept, Type(0.0), Type(10.0)).sum();
+```
+
+* If you omit a parameter from this list, it will amount to giving
+it a flat (uninformative) prior. 
+</details>
+
+<details>
+  <summary>Log likelihood</summary>
+
+* Contribution from the binomial likelihood of the reponse:
+
+```c++
+  Type ypred;
+  // model predictions
+  for(int i=0; i<Ndata; i++){
+    // prediction logit scale
+    ypred= intercept(stage(i)-1) +
+      yearInterceptEffect_raw(year(i)-1)*yearInterceptSD2 +
+      plantInterceptEffect_raw(plant(i)-1)*plantInterceptSD2+
+      Pods(i) * plantSlopeEffect_raw(plant(i)-1)*plantSlopeSD2+
+      Pods(i) * slope;
+    // likelihood contribution
+    if(toF(i)==1){
+      nll += log(1+exp(-ypred));
+    } else {
+      nll += ypred+log(1+exp(-ypred));
+    }
+  }
+```
+
+* Contribution from random effects (which may have been included instead in `nlp`) 
+
+```c++
+  // random effects; non-centered
+  nll -= dnorm(yearInterceptEffect_raw, Type(0.0), Type(1.0), true).sum();
+  nll -= dnorm(plantInterceptEffect_raw,Type(0.0), Type(1.0), true).sum();
+  nll -= dnorm(plantSlopeEffect_raw, Type(0.0), Type(1.0), true).sum();
+
+```
+
+</details>
+
+***
+#### References
+Monnahan, C. C. and K. Kristensen. 2018. No-U-turn sampling for fast
+Bayesian inference in ADMB and TMB: Introducing the adnuts and tmbstan R
+packages. Plos One 13:e0197954.
