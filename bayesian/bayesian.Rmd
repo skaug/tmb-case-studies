@@ -17,12 +17,12 @@ In this example you learn:
 ***
 #### Description of the practical situation
 The model itself is not as important, but it is a binomial GLMM with
-three levels of crossed random effects. This particular analysis comes from
+three crossed random effects. This particular analysis comes from
 the paper Monnahan and Kristensen (2018), where you can find a more
 detailed description of the model and analysis, as well as further
 resources.
 
-`tmbstan` is an R-package which links `TMB` to the software [STAN](http://mc-stan.org/) which does Hamiltonian Monte Carlo (HMC). With `tmbstan` you can sample from any TMB objective function (then interpreted as an un-normalized posterior). It requires a fully Bayesian perspective, and typically involves putting priors on all parameters. You can still use the Laplace approximation, which opens up for two different configurations:
+`tmbstan` is an R-package which links `TMB` to the software [Stan](http://mc-stan.org/) which does Hamiltonian Monte Carlo (HMC). With `tmbstan` you can sample from any TMB objective function (then interpreted as an un-normalized posterior). It requires a fully Bayesian perspective, and typically involves putting priors on all parameters. You can still use the Laplace approximation, which opens up for two different configurations:
 
 1. Sample both parameters and latent random variables (the random effects) with HMC
 2. Integrate out latent random variables using the Laplace approximation, while sampling parameters with HMC
@@ -71,8 +71,6 @@ include_source("bayesian.cpp", linesToInclud=c(1:999))
 ***
 #### C++ code step-by-step
 
-* Reading in data and parameters from R is skipped (see other examples)
-
 <details>
   <summary>Writing a C++ function for the Cauchy density</summary>
 
@@ -82,34 +80,55 @@ include_source("bayesian.cpp", linesToInclud=c(1:999))
 * The following code implements $f(x;mean,\gamma)$, and serves as an example of how you can write your own C++ functions:
 ```c++
     template<class Type>   // See explanation below
-    Type dcauchy(Type x, Type mean, Type shape, int give_log=0){
-    Type logres = 0.0;
-    logres-= log(M_PI);   // Constant "pi
-    logres-= log(shape);  // Parameter "gamma"
-    // Note, this is unstable and should switch to log1p formulation
-    logres-= log(1 + pow( (x-mean)/shape ,2));  // Main part of log-density
-    if(give_log) return logres; else return exp(logres);  // Return value
+    Type dcauchy(Type x, Type mean, Type gamma, int give_log=0){  // Function body starts here
+    Type logres = 0.0;    // Define variable that holds return value
+    logres -= log(M_PI);   // Subtract log("pi")
+    logres -= log(gamma);  // Subtract log("gamma")
+    logres -= log(1 + pow( (x-mean)/gamma ,2));  // Main part of log-density
+    if(give_log) return logres; else return exp(logres);  // Return value (log or not)
+}
 ```
   * The first code line `template<class Type>` gives the data type returned by the function. In this case it is `Type`, which is the TMB scalar type. 
   * Now, `dcauchy()` can be used as any built in density in the objective function
 ```c++
-  nlp-= dcauchy(yearInterceptSD2, Type(0), Type(5));
+  nlp -= dcauchy(yearInterceptSD2, Type(0), Type(5),true);
 ```
 </details>
 
 <details>
-  <summary>The objective function (return) value in Bayesian models</summary>
+  <summary>The objective function (return value) in Bayesian models</summary>
 
   * In a fully Bayesian model the return value should be 
-  the negative log (un-normalized) posterior. 
+  the negative log (un-normalized) posterior density. 
 
-  * In pratice we collect all contributions from parameter priors (stored in variable `nlp`) and all likelihood contributions (in variable `nll`) separately, and 
-  return their sum at the end.
+  * The return value has to parts: i) contributions from parameter log-priors (stored in variable `nlp`) and log-likelihood contributions (stored in variable `nll`). At the end of the C++ program we return `nlp+nll`.
 ```c++
   Type nlp=0.0; // negative log prior
   Type nll=0.0; // negative log likelihood
 ```
 </details>
+
+<details>
+  <summary>Parameter transformation and Jacobinan correction</summary>
+
+  * As usual we use a log-parameterization of standard deviations. 
+    This has the advantage that the sampling can be done on
+    the entire real line (as opposed to only the positive part). 
+    Back transform to absolute scale:
+```c++
+  Type yearInterceptSD2=exp(yearInterceptSD);
+  Type plantInterceptSD2=exp(plantInterceptSD);
+  Type plantSlopeSD2=exp(plantSlopeSD);
+```
+
+  * However, because the parameters are random variables in the Bayesian world, we need to add (subtract) a "Jacobian correction" to the objective function according to the [change-of-variable formula](https://en.wikipedia.org/wiki/Probability_density_function#Dependent_variables_and_change_of_variables): 
+```c++
+  nll -= yearInterceptSD + plantInterceptSD + plantSlopeSD;
+```
+See excercise below for more details.
+
+</details>
+
 
 <details>
   <summary>Setting priors on parameters</summary>
@@ -118,15 +137,16 @@ include_source("bayesian.cpp", linesToInclud=c(1:999))
 
   * This can be done explicitely:
 ```c++
-  nlp -= dcauchy(yearInterceptSD2, Type(0), Type(5));
-  nlp -= dcauchy(plantInterceptSD2, Type(0), Type(5));
-  nlp -= dcauchy(plantSlopeSD2, Type(0), Type(5));
-  nlp -= dnorm(slope, Type(0.0), Type(10.0));
-  nlp -= dnorm(intercept, Type(0.0), Type(10.0)).sum();
+  nlp -= dcauchy(yearInterceptSD2, Type(0), Type(5), true);
+  nlp -= dcauchy(plantInterceptSD2, Type(0), Type(5), true);
+  nlp -= dcauchy(plantSlopeSD2, Type(0), Type(5), true);
+  nlp -= dnorm(slope, Type(0.0), Type(10.0), true);
+  nlp -= dnorm(intercept, Type(0.0), Type(10.0), true).sum();
 ```
 
 * If you omit a parameter from this list, it will amount to giving
-it a flat (uninformative) prior. 
+it a flat (improper) prior, but
+see [Stan-Prior-Choice Recommendations](https://github.com/stan-dev/stan/wiki/Prior-Choice-Recommendations)
 </details>
 
 <details>
@@ -164,6 +184,42 @@ it a flat (uninformative) prior.
 ```
 
 </details>
+
+***
+#### R code step-by-step
+
+<details>
+  <summary>Set up spline structure by using `mgcv`</summary>
+```r
+  gam_setup = gam(Richness ~ s(ROCK, bs = "cs") +
+        s(LITTER, bs = "cs") + s(BARESOIL, bs = "cs") +
+        s(FallPrec, bs = "cs") + s(SprTmax, bs = "cs"),
+      data = Vegetation,fit=FALSE)
+```
+* `fit=FALSE` is because you only want `mgcv` to set up the spline bases,
+   not fit the model.
+</details>
+
+***
+#### Exercises
+
+1. Explain why the "Jacobian correction" takes the particular form:
+```c++
+  nll -= yearInterceptSD + plantInterceptSD + plantSlopeSD;
+```
+<details>
+  <summary>Solution</summary>
+In the notation of [change-of-variable formula](https://en.wikipedia.org/wiki/Probability_density_function#Dependent_variables_and_change_of_variables)
+we set $x=\sigma$ and $y=\log\sigma$, where $\sigma$ is the standard
+deviation of the prior. Hence, 
+$g(x)=\log(x)$ and $g^{-1}(y)=\exp(y)$, and the Jacobian determinant becomes
+$$
+|J|=\left| \frac{d}{dy} \big(g^{-1}(y)\big) \right| = \exp(y),
+$$
+so we should add (subtract) $\log|J|=y=\log(\sigma)$ to the objective function
+for each of the three parameters.
+</details>
+
 
 ***
 #### References

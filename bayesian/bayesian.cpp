@@ -45,12 +45,12 @@ Type objective_function<Type>::operator() ()
   Type plantInterceptSD2=exp(plantInterceptSD);
   Type plantSlopeSD2=exp(plantSlopeSD);
 
-  // priors
-  nlp-= dcauchy(yearInterceptSD2, Type(0), Type(5));
-  nlp-= dcauchy(plantInterceptSD2, Type(0), Type(5));
-  nlp-= dcauchy(plantSlopeSD2, Type(0), Type(5));
-  nlp-= dnorm(slope, Type(0.0), Type(10.0));
-  nlp-= dnorm(intercept, Type(0.0), Type(10.0)).sum();
+  // Add log priors
+  nlp-= dcauchy(yearInterceptSD2, Type(0), Type(5), true);
+  nlp-= dcauchy(plantInterceptSD2, Type(0), Type(5), true);
+  nlp-= dcauchy(plantSlopeSD2, Type(0), Type(5), true);
+  nlp-= dnorm(slope, Type(0.0), Type(10.0), true);
+  nlp-= dnorm(intercept, Type(0.0), Type(10.0), true).sum();
 
   Type ypred;
   // model predictions
@@ -76,6 +76,6 @@ Type objective_function<Type>::operator() ()
 
   // Jacobian adjustments
   nll-= yearInterceptSD + plantInterceptSD + plantSlopeSD;
-  Type nld=nll+nlp; // negative log density
+  Type nld=nll+nlp;    // Log Un-normalized posterior density
   return(nld);
 }
