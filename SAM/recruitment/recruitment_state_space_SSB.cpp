@@ -4,11 +4,14 @@ template<class Type>
 Type objective_function<Type>::operator()(){
   
   DATA_VECTOR(Robs);
+  DATA_VECTOR(SSB);
   DATA_INTEGER(method);
   
   PARAMETER_VECTOR(logR); // Latent process 
   PARAMETER(log_sigma_Robs); 
   PARAMETER(log_sigma_logR); 
+  PARAMETER_VECTOR(ricker); 
+  PARAMETER_VECTOR(bh); 
   
   // Transform data
   vector<Type> log_Robs = log(Robs);
@@ -24,7 +27,7 @@ Type objective_function<Type>::operator()(){
  Type nll = 0; 
  // Number of observations 
  Type n = Robs.size(); 
- 
+ Type pred = 0; 
  // Contribution to likelihood from latent process logR
  
  
@@ -32,12 +35,23 @@ Type objective_function<Type>::operator()(){
    
    switch(method){
    case 0:
-     nll -= dnorm(logR(i), logR(i - 1), sigma_logR, true);
+     pred = logR(i - 1);
      break;
      
-   case 1: 
-     
+   case 1:
+     pred = ricker(0) + log(SSB(i - 1)) - exp(ricker(1)) * SSB(i - 1);
+     break;
+
+   case 2:
+     pred = bh(0) + log(SSB(i - 1)) - log(Type(1.0) + exp(bh(1)) * SSB(i - 1));
+     break;
+
+   default:
+     std::cout << "This method is not implementet. Method has to be a number 0, 1, 2" << std::endl;
+   break;
    }
+   
+   nll -= dnorm(logR(i), pred, sigma_logR, true);
 
  }
  
