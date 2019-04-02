@@ -16,7 +16,7 @@ Type objective_function<Type>::operator()(){
   
   PARAMETER_MATRIX(logF);
   PARAMETER_VECTOR(log_sigma_logF);
-  PARAMETER(trans_rho); 
+  PARAMETER_VECTOR(trans_rho); 
   PARAMETER(log_sigma_Fobs); 
   
   
@@ -44,29 +44,15 @@ Type objective_function<Type>::operator()(){
   
   switch(cormode){
   
-    // Parallell  
+    // Independent
     case 0:
-      
-      // Fill diagonal
-      Sigma.diagonal() = sigma_logF * sigma_logF;
-      
-      for(int i = 0; i < n_age; i++){
-        for(int j = 0; j < i; j++){
-          Sigma(i, j) = sqrt(sigma_logF(i) * sigma_logF(j));
-          Sigma(j, i) = Sigma(i, j);
-        }
-      }
-    break;
-      
-      // Independent
-    case 1:
       Sigma.diagonal() = sigma_logF * sigma_logF;
     break;
       
     // Compound symmertry
-    case 2:
+    case 1:
       Sigma.diagonal() = sigma_logF * sigma_logF;
-      rho = trans(trans_rho); 
+      rho = trans(trans_rho(0)); 
       for(int i = 0; i < n_age; i++){
         for(int j = 0; j < i; j++){
           Sigma(i, j) = rho * sigma_logF(i) * sigma_logF(j);
@@ -76,9 +62,9 @@ Type objective_function<Type>::operator()(){
     break;
       
     // AR(1) 
-    case 3: 
+    case 2: 
       Sigma.diagonal() = sigma_logF * sigma_logF;
-      rho = trans(trans_rho); 
+      rho = trans(trans_rho(0)); 
       for(int i = 0; i < n_age; i++){
         for(int j = 0; j < i; j++){
           Sigma(i, j) = pow(rho, Type(i - j)) * sigma_logF(i) * sigma_logF(j);
@@ -97,6 +83,8 @@ Type objective_function<Type>::operator()(){
   
   // Make zero mean multivariate object with covariance Sigma
   density::MVNORM_t<Type> negative_mvn(Sigma);
+  ADREPORT(Sigma);
+  
   
   for(int y = 1; y < n_year; y++){
     nll += negative_mvn(logF.row(y) - logF.row(y - 1)); // Returns negative log likelihood  
