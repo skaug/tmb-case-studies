@@ -24,3 +24,17 @@ rep <- sdreport(obj)
 logN_rep <- summary(rep, "random")
 
 matplot(as.list(rep ,"Est")$logN, type="l", add=TRUE)
+
+
+load("Nobs2.RData")
+
+compile("survival_ssb.cpp")
+dyn.load(dynlib("survival_ssb.cpp"))
+
+
+param <- list(logN = matrix(0 ,nrow = nrow(Nobs$Nobs), ncol = ncol(Nobs$Nobs)),
+              log_sigma_Nobs = 0, 
+              log_sigma_logN = 0,
+              log_sigma_logR = 0,
+              
+              )

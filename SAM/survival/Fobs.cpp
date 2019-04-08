@@ -29,7 +29,7 @@ Type objective_function<Type>::operator()(){
   vector<Type> sigma_logF = exp(log_sigma_logF); 
   Type rho = 0;
   
-  
+
   // Report standard deviation of parameters
   ADREPORT(sigma_Fobs);
   ADREPORT(sigma_logF);
