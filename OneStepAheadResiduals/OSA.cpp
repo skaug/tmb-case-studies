@@ -3,8 +3,8 @@
 template <class Type>
 Type objective_function<Type>::operator()()
 {
-  DATA_VECTOR(y);                  // Observations
-  DATA_VECTOR_INDICATOR(keep, y);  // For one-step predictions
+  DATA_VECTOR(y);                  //Observations
+  DATA_VECTOR_INDICATOR(keep, y);  //Indicator variable for one-step-ahead predictions
   DATA_SCALAR(huge);    //Used to integreat out X_1
   PARAMETER_VECTOR(x);  //The latent AR1 random variable
   PARAMETER(mu);        //The drift
