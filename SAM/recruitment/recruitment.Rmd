@@ -1,0 +1,261 @@
+---
+title: "Recruitment"
+author: "Hans Skaug, Jens Wahl, Olav Breivik"
+date: "27 mai 2019"
+output: html_document
+---
+
+
+```{r, echo=FALSE, eval=TRUE, results='hide',include=FALSE}
+library(TMB)
+```
+
+## **Recruitment**
+In this example you learn: 
+
+* The recruitment process of SAM.
+* How to implement the recruitment process in TMB.
+* Extract quantities from the model in R.
+
+***
+#### Description of process
+
+In the SAM model we model the recruitment process ($R_y$) as an unobserved (latent) process, but we will in this example assume that we observe this process. The simplest way to model recruitment is as a random walk: 
+
+\[
+  \log R_y = \log R_{y-1} + \epsilon_y, 
+\]
+
+where $\epsilon_t \sim N(0, \sigma_R^2)$ and iid, and $R_y$ is the observed recruitment in year $y$, for $y = 1, \ldots, T$. If we assume no measurement error, the only parameter to be estimated is the standard deviation of $\sigma_R$. 
+
+***
+#### Full code for example
+<details>
+  <summary> R code </summary>
+```{r, echo = FALSE}
+# Load data
+load("Robs.RData")
+
+# Compile TMB code for for random walk
+compile("recruitment.cpp")
+dyn.load(dynlib("recruitment"))
+
+# Prepare for TMB
+param <- list(log_sigma_r = -0.5)
+data <- list(Robs = Robs$Robs)
+
+
+# Make objective function
+obj <- MakeADFun(data, param, DLL = "recruitment")
+opt <- nlminb(obj$par, obj$fn, obj$gr, control = list(trace = FALSE))
+
+# Get standard deviations
+rep <- sdreport(obj)
+summary(rep)
+
+```
+</details>
+
+<details> 
+  <summary> C++ code </summary>
+```c++
+#include <TMB.hpp>
+
+template<class Type> 
+Type objective_function<Type>::operator()(){
+  
+  // Data 
+  DATA_VECTOR(Robs);
+  
+  // Parameter
+  PARAMETER(log_sigma_r);
+
+  Type sigma_r = exp(log_sigma_r);
+  ADREPORT(sigma_r); // Report standard deviation of sigma_r back to R
+  
+  Type nll = 0; // negative log likelihood
+  vector<Type> log_Robs = log(Robs); // log of recruitment
+  
+  // Se exercise 2 below for negative log-likelihood
+  
+  return(nll); 
+}
+```
+</details> 
+
+***
+#### Exercice 1
+
+1.
+<details>
+  <summary> Write down the negative log likelihood of the recruitment process described above.</summary>
+  Since all $\epsilon_t$ are independent and $R_y$ only is dependent on $R_{y-1}$ the likelihood can be written as 
+  \begin{align}
+    L(\sigma_R) = \prod_{y = 2}^T N(R_{y-1}, \sigma_R^2).
+  \end{align}
+  The negative log likelihood is therefore given by 
+  \begin{align}
+    - \log L(\sigma_R) = - \sum_{y = 2}^T \log N(R_{y-1}, \sigma_R^2).
+  \end{align}
+</details>
+
+2. 
+<details> 
+  <summary> Implement the likelihood from 1. </summary> 
+  
+    ```c++ 
+      for(int i = 1; i < Robs.size(); i++){
+        nll -= dnorm(log_Robs(i), log_Robs(i - 1), sigma_r, true);
+      }
+
+    ```
+  
+</details> 
+
+### Recruitment as a state space model 
+
+Assume that we don't observe the recruitment process directly and that measurement error is introduced. We assume that the measurment error $\eta_y \sim N(0, \sigma_{R^\text{obs}}^2)$ and iid. The model can then be expressed as:
+
+\begin{align}
+  \log R_y^{(\text{obs})} &= R_y + \eta_y, \\
+  \log R_y &= \log R_{y-1} + \epsilon_y. 
+\end{align}
+
+The "true" process is $R_y$ is now unobserved and need to be integrated out. 
+
+#### Full code for example
+<details> 
+  <summary> R code </summary> 
+```{r, echo=TRUE, comment = "", message=FALSE, results = "hide", warning=FALSE}
+# Compile TMB code for random walk state space model
+compile("recruitment_state_space.cpp")
+dyn.load(dynlib("recruitment_state_space"))
+
+param <- list(logR = rep(0, length(Robs$Robs)),
+              log_sigma_Robs = -0.5,
+              log_sigma_logR = -0.5)
+
+data <- list(Robs = Robs$Robs)
+
+obj <- MakeADFun(data, param, random = "logR", DLL = "recruitment_state_space")
+opt <- nlminb(obj$par, obj$fn, obj$gr)
+
+# Get standard deviation of parameters and latent process
+rep <- sdreport(obj)
+
+# Get summary of fixed effects 
+summary(rep, "fixed", p.value = T)
+logR_rep <- summary(rep, "random")
+
+
+# Plot estimated recruitment process
+{plot(Robs$year, log(Robs$Robs), ylab = "Recruitment", xlab = "year")
+lines(Robs$year, logR_rep[, 1], col="black")
+lines(Robs$year, logR_rep[, 1] - 2 * logR_rep[, 2], col="black", lty="dashed")
+lines(Robs$year, logR_rep[, 1] + 2 * logR_rep[, 2], col="black", lty="dashed")}
+```
+
+</details>
+
+<details> 
+  <summary> C++ code </summary>
+```c++
+#include <TMB.hpp>
+
+template<class Type> 
+Type objective_function<Type>::operator()(){
+  
+  DATA_VECTOR(Robs); 
+  
+  PARAMETER_VECTOR(logR); // Latent process 
+  PARAMETER(log_sigma_Robs); 
+  PARAMETER(log_sigma_logR); 
+  
+  // Transform data
+  vector<Type> log_Robs = log(Robs);
+  
+ // Transform standard deviations
+ Type sigma_Robs = exp(log_sigma_Robs); 
+ Type sigma_logR = exp(log_sigma_logR);
+ 
+ ADREPORT(sigma_Robs); 
+ ADREPORT(sigma_logR); 
+ 
+ // Negative log likelihood
+ Type nll = 0; 
+ // Number of observations 
+ Type n = Robs.size(); 
+ 
+ // Contribution to likelihood from latent process logR
+ for(int i = 1; i < n; i++){
+   nll -= dnorm(logR(i), logR(i - 1), sigma_logR, true);
+ }
+ 
+ // Contribution to likelihood from observations Robs
+  
+ // See exercise 2 below
+ 
+ return(nll);
+  
+}
+```
+    
+</details> 
+
+***
+#### Exercise 2
+
+1. 
+<details> 
+  <summary> Write down the joint negative log likelihood of the recruitment state-space model </summary> 
+  Let $R^{\text(obs)} = (R_1^\text{obs}, \ldots, R_T^\text{obs})$.
+  
+</details> 
+
+2. 
+<details> 
+  <summary> Implement the likelihood for the observation equation. </summary>
+    ```c++
+       // Contribution to likelihood from observations Robs
+       for(int i = 0; i < n; i++){
+         nll -= dnorm(log_Robs(i), logR(i), sigma_Robs, true);
+       }
+    ```
+</details> 
+
+## **Stock assessment model (SAM)** 
+In this example you learn:
+
+* The basic ideas behind SAM
+* How to estimate a SAM-model with TMB.
+* How to extract quantities used in stock assessment from SAM.
+
+
+***
+#### Description of the practical situation
+In this case study we model the population of North Sea cod with use of assessment model SAM [(Nielsen et al., 2014)](https://doi.org/10.1016/j.fishres.2014.01.014). The example is similar as the example given [here](https://github.com/fishfollower/samex) by Anders Nielsen.
+Let $N_{a,y}$ be the number of cod of age $a$ in year $y$. The number of fish next year equals the number of fish this year minus those who have died and added those who have been born. This can be expressed mathematically as:
+
+$\begin{align}
+\log N_{1,y} &= \log R({\bf N}_{y-1}) + \eta_{1,y} \\
+\log N_{a,y} &= \log N_{a-1,y-1} - F_{a-1,y-1} - M_{a-1,y-1} + \eta_{a,y}\\
+\log N_{A,y} &= \sum_{a = A-1}^A (\log N_{a,y-1} - F_{a,y-1} - M_{a,y-1}) + \eta_{A,y},
+\end{align}$
+
+where $R(\cdot)$ is a function describing the spawning productivity of the cod, $A$ represents a maximum age, $F$ represents the fishing mortality and $M$ the natural mortality. It is assumed that $\eta_{a,y}$ is iid N(0,$\sigma_{\eta,a}^2$) distributed. Note that the variable $\eta_{a,y}$ for $a>1$ should be equal to zero if the model is perfect and there is zero migration. This is because no fish are born with age larger than one. The variable $\eta_{a,y}$ can be interpered as a model misspecification parameter, which accounts for variability in the stock caused by structures not included in the model. If the model is relatively correctly spessified, the shrinkage effect will cause $\sigma_{\eta,a}^2$ to be estimated close to zero. 
+
+<details> <summary> Details about fishing mortality and observation equations: </summary> 
+
+
+We assume that the fishing mortality is given by 
+\begin{align}
+\log {\bf F}_y = \log {\bf F}_{y-1} + \pmb{\xi_y},
+\end{align}
+were $\pmb{\xi} \sim N(0,\pmb{\Sigma}_{\xi})$. We further observe time of series commercial catches and indexes which are assumed given by:
+
+$\begin{align}
+\log C_{a,y} &= \log \Big( \frac{F_{a,y}}{F_{a,y} + M_{a,y}} (1- e^{-F_{a,y} - M_{a,y}})N_{a,y} \Big) + \epsilon^c_{a,y} \\
+\log I_{y}^{(s)} &= \log ( Q_a^{(s)} e^{-(F_{a,y} + M_{a,y})day^{(s)}/365} N_{a,y}) + \epsilon^s_{a,y}   \\
+\end{align}$
+
+It is assumed that  $\pmb{\epsilon}^c \sim N(0,\pmb{\Sigma}_c)$and $\pmb{\epsilon}^{(s)} \sim N(0,\pmb{\Sigma}_s)$. These time series are the observations used to estimate the parameters in SAM.
