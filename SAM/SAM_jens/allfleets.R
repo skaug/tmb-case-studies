@@ -29,6 +29,6 @@ est <- obj$report()$logPred
 par(mfrow=c(1,1))
 for(f in 1:3){
   idx<-which(allfleets$aux[,2]==f)
-  matplot(xtabs(log(allfleets$obs[idx])~allfleets$aux[idx,1]+allfleets$aux[idx,3]), ylab="Log Obs")
+  matplot(xtabs(log(allfleets$obs[idx])~allfleets$aux[idx,1]+allfleets$aux[idx,3], na.action = na.pass), ylab="Log Obs")
   matplot(xtabs(est[idx]~allfleets$aux[idx,1]+allfleets$aux[idx,3]), type="l", add=TRUE)
 }
