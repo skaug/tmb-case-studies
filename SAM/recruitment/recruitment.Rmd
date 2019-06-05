@@ -2,7 +2,8 @@
 title: "Recruitment"
 author: "Hans Skaug, Jens Wahl, Olav Breivik"
 date: "27 mai 2019"
-output: html_document
+output: 
+  html_document
 ---
 
 
@@ -32,7 +33,7 @@ where $\epsilon_t \sim N(0, \sigma_R^2)$ and iid, and $R_y$ is the observed recr
 #### Full code for example
 <details>
   <summary> R code </summary>
-```{r, echo = FALSE}
+```{r, echo = TRUE, warning=F}
 # Load data
 load("Robs.RData")
 
@@ -76,7 +77,7 @@ Type objective_function<Type>::operator()(){
   Type nll = 0; // negative log likelihood
   vector<Type> log_Robs = log(Robs); // log of recruitment
   
-  // Se exercise 2 below for negative log-likelihood
+  // Se exercise 1 below for negative log-likelihood
   
   return(nll); 
 }
@@ -121,12 +122,12 @@ Assume that we don't observe the recruitment process directly and that measureme
   \log R_y &= \log R_{y-1} + \epsilon_y. 
 \end{align}
 
-The "true" process is $R_y$ is now unobserved and need to be integrated out. 
+The "true" process, $R_y$, is now unobserved and need to be integrated out. 
 
 #### Full code for example
 <details> 
   <summary> R code </summary> 
-```{r, echo=TRUE, comment = "", message=FALSE, results = "hide", warning=FALSE}
+```{r non.finished.plotting, echo=TRUE, comment = "", message=FALSE, results = "hide", warning=FALSE}
 # Compile TMB code for random walk state space model
 compile("recruitment_state_space.cpp")
 dyn.load(dynlib("recruitment_state_space"))
@@ -208,7 +209,12 @@ Type objective_function<Type>::operator()(){
 1. 
 <details> 
   <summary> Write down the joint negative log likelihood of the recruitment state-space model </summary> 
-  Let $R^{\text(obs)} = (R_1^\text{obs}, \ldots, R_T^\text{obs})$.
+  Let $R^{\text(obs)} = (R_1^\text{obs}, \ldots, R_T^\text{obs})$ and $R = (R_1, \ldots, R_T)$. The joint distribution of        $(R^\text{obs}, R)$ can be written as 
+  
+  \begin{align}
+    L(\theta) &= \int f(R^\text{obs}, R) dR = \int f(R^\text{obs} | R) f(R) dR \\
+    &= \int f(R_1^\text{obs} | R_1) f(R_1) \prod_{y=2}^T f(R_y^\text{obs} | R_y) f(R_y) dR
+  \end{align}
   
 </details> 
 
@@ -223,39 +229,172 @@ Type objective_function<Type>::operator()(){
     ```
 </details> 
 
-## **Stock assessment model (SAM)** 
-In this example you learn:
+3. 
+<details> 
+  <summary> Plot the estimated recruitment process with 2 times standard error </summary> 
+    ```r
+    plot(Robs$year, log(Robs$Robs), ylab = "Recruitment", xlab = "year")
+    lines(Robs$year, logR_rep[, 1], col="black")
+    lines(Robs$year, logR_rep[, 1] - 2 * logR_rep[, 2], col="black", lty="dashed")
+    lines(Robs$year, logR_rep[, 1] + 2 * logR_rep[, 2], col="black", lty="dashed")
+    ```
+</details> 
 
-* The basic ideas behind SAM
-* How to estimate a SAM-model with TMB.
-* How to extract quantities used in stock assessment from SAM.
 
 
 ***
-#### Description of the practical situation
-In this case study we model the population of North Sea cod with use of assessment model SAM [(Nielsen et al., 2014)](https://doi.org/10.1016/j.fishres.2014.01.014). The example is similar as the example given [here](https://github.com/fishfollower/samex) by Anders Nielsen.
-Let $N_{a,y}$ be the number of cod of age $a$ in year $y$. The number of fish next year equals the number of fish this year minus those who have died and added those who have been born. This can be expressed mathematically as:
+### Using spawning stock biomass (SSB) to predict recruitment.
 
-$\begin{align}
-\log N_{1,y} &= \log R({\bf N}_{y-1}) + \eta_{1,y} \\
-\log N_{a,y} &= \log N_{a-1,y-1} - F_{a-1,y-1} - M_{a-1,y-1} + \eta_{a,y}\\
-\log N_{A,y} &= \sum_{a = A-1}^A (\log N_{a,y-1} - F_{a,y-1} - M_{a,y-1}) + \eta_{A,y},
-\end{align}$
+Instead of letting the recruitment be a function of the recruitment from the year before, we can use the spawning stock biomass from last year to predict the recruitment. We will look at two popular options: 
 
-where $R(\cdot)$ is a function describing the spawning productivity of the cod, $A$ represents a maximum age, $F$ represents the fishing mortality and $M$ the natural mortality. It is assumed that $\eta_{a,y}$ is iid N(0,$\sigma_{\eta,a}^2$) distributed. Note that the variable $\eta_{a,y}$ for $a>1$ should be equal to zero if the model is perfect and there is zero migration. This is because no fish are born with age larger than one. The variable $\eta_{a,y}$ can be interpered as a model misspecification parameter, which accounts for variability in the stock caused by structures not included in the model. If the model is relatively correctly spessified, the shrinkage effect will cause $\sigma_{\eta,a}^2$ to be estimated close to zero. 
+* Richer: $RS(SSB) = \alpha SSB e^{-\beta SSB}$
+* Beverton-Holt: $RS(SSB) = \frac{\alpha SSB}{1 + \beta SSB}$
 
-<details> <summary> Details about fishing mortality and observation equations: </summary> 
+We can then setup our recruitment process like: 
+
+\[
+  \log R_y = \log RS(SSB_{y - 1}) + \epsilon_y, \quad \text{where } \epsilon \sim N(0, \sigma_R^2)
+\]
 
 
-We assume that the fishing mortality is given by 
-\begin{align}
-\log {\bf F}_y = \log {\bf F}_{y-1} + \pmb{\xi_y},
-\end{align}
-were $\pmb{\xi} \sim N(0,\pmb{\Sigma}_{\xi})$. We further observe time of series commercial catches and indexes which are assumed given by:
+*** 
+#### Full code for example
 
-$\begin{align}
-\log C_{a,y} &= \log \Big( \frac{F_{a,y}}{F_{a,y} + M_{a,y}} (1- e^{-F_{a,y} - M_{a,y}})N_{a,y} \Big) + \epsilon^c_{a,y} \\
-\log I_{y}^{(s)} &= \log ( Q_a^{(s)} e^{-(F_{a,y} + M_{a,y})day^{(s)}/365} N_{a,y}) + \epsilon^s_{a,y}   \\
-\end{align}$
+<details> 
+  <summary> R code </summary> 
+```{r, echo=-1, comment = "", message=FALSE, results = "hide", warning=FALSE}
 
-It is assumed that  $\pmb{\epsilon}^c \sim N(0,\pmb{\Sigma}_c)$and $\pmb{\epsilon}^{(s)} \sim N(0,\pmb{\Sigma}_s)$. These time series are the observations used to estimate the parameters in SAM.
+# Richer 
+
+compile("recruitment_state_space_SSB.cpp")
+dyn.load(dynlib("recruitment_state_space_SSB"))
+
+data <- list(Robs = Robs$Robs,
+             SSB = Robs$ssb,
+             method = 1)
+
+param <- list(logR = rep(0, length(Robs$Robs)),
+              log_sigma_Robs = 0,
+              log_sigma_logR = 0, 
+              ricker = if(data$method == 1){numeric(2)} else{numeric(0)},
+              bh = if(data$method == 2){numeric(2)} else{numeric(0)})
+
+
+
+obj <- MakeADFun(data, param, random = "logR", DLL = "recruitment_state_space_SSB")
+opt <- nlminb(obj$par, obj$fn, obj$gr)
+rep <- sdreport(obj)
+logR_r_rep <- summary(rep, "random")
+
+
+# Beverton-Holt
+
+
+data <- list(Robs = Robs$Robs,
+             SSB = Robs$ssb,
+             method = 2)
+
+param <- list(logR = rep(0, length(Robs$Robs)),
+              log_sigma_Robs = 0,
+              log_sigma_logR = 0, 
+              ricker = if(data$method == 1){numeric(2)} else{numeric(0)},
+              bh = if(data$method == 2){numeric(2)} else{numeric(0)})
+
+
+
+obj <- MakeADFun(data, param, random = "logR", DLL = "recruitment_state_space_SSB")
+opt <- nlminb(obj$par, obj$fn, obj$gr)
+rep <- sdreport(obj)
+logR_bh_rep <- summary(rep, "random")
+
+
+
+
+
+# Plot all estimated recruitment processes
+{plot(Robs$year, log(Robs$Robs), ylab = "Recruitment", xlab = "year")
+lines(Robs$year, logR_rep[, 1], col="black")
+lines(Robs$year, logR_rep[, 1] - 2 * logR_rep[, 2], col="black", lty="dashed")
+lines(Robs$year, logR_rep[, 1] + 2 * logR_rep[, 2], col="black", lty="dashed")
+lines(Robs$year, logR_r_rep[, 1], col = "red")
+lines(Robs$year, logR_bh_rep[, 1], col = "blue")
+legend("bottomright", c("Random walk", "Ricker", "Berverton-Hold"), lty = 1, col = c("black", "red", "blue"))}
+
+
+```
+
+</details>
+
+<details> 
+  <summary> C++ code </summary>
+```c++
+#include <TMB.hpp>
+
+template<class Type> 
+Type objective_function<Type>::operator()(){
+  
+  DATA_VECTOR(Robs);
+  DATA_VECTOR(SSB);
+  DATA_INTEGER(method);
+  
+  PARAMETER_VECTOR(logR); // Latent process 
+  PARAMETER(log_sigma_Robs); 
+  PARAMETER(log_sigma_logR); 
+  PARAMETER_VECTOR(ricker); 
+  PARAMETER_VECTOR(bh); 
+  
+  // Transform data
+  vector<Type> log_Robs = log(Robs);
+  
+ // Transform standard deviations
+ Type sigma_Robs = exp(log_sigma_Robs); 
+ Type sigma_logR = exp(log_sigma_logR);
+ 
+ ADREPORT(sigma_Robs); 
+ ADREPORT(sigma_logR); 
+ 
+ // Negative log likelihood
+ Type nll = 0; 
+ // Number of observations 
+ Type n = Robs.size(); 
+ Type pred = 0; 
+ // Contribution to likelihood from latent process logR
+ 
+ 
+ for(int i = 1; i < n; i++){
+   
+   switch(method){
+   case 0:
+     pred = logR(i - 1);
+     break;
+     
+   case 1:
+     pred = ricker(0) + log(SSB(i - 1)) - exp(ricker(1)) * SSB(i - 1);
+     break;
+
+   case 2:
+     pred = bh(0) + log(SSB(i - 1)) - log(Type(1.0) + exp(bh(1)) * SSB(i - 1));
+     break;
+
+   default:
+     std::cout << "This method is not implementet. Method has to be a number 0, 1, 2" << std::endl;
+   break;
+   }
+   
+   nll -= dnorm(logR(i), pred, sigma_logR, true);
+
+ }
+ 
+ // Contribution to likelihood from observations Robs
+ for(int i = 0; i < n; i++){
+   nll -= dnorm(log_Robs(i), logR(i), sigma_Robs, true);
+ }
+ 
+ return(nll);
+  
+}
+```
+    
+</details> 
+
+
