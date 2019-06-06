@@ -7,16 +7,17 @@ Type objective_function<Type>::operator()(){
   DATA_MATRIX(M); 
   DATA_MATRIX(F); 
   
-  PARAMETER_MATRIX(logN);
-  PARAMETER(log_sigma_Nobs); 
-  PARAMETER(log_sigma_logN);
-  PARAMETER(log_sigma_logR); 
+  PARAMETER_MATRIX(logN); // Survival matrix for all age groups and years 
+  PARAMETER(log_sigma_Nobs); // standard deviation for observations 
+  PARAMETER(log_sigma_logN); // standard devitation for state equation
+  PARAMETER(log_sigma_logR); // stadard deviation for recruitment 
   
-  
+  // Transform parameters
   Type sigma_Nobs = exp(log_sigma_Nobs); 
   Type sigma_logN = exp(log_sigma_logN); 
   Type sigma_logR = exp(log_sigma_logR);
   
+  // Report to R
   ADREPORT(sigma_logN);
   ADREPORT(sigma_Nobs);
   ADREPORT(sigma_logR);
@@ -40,7 +41,7 @@ Type objective_function<Type>::operator()(){
       
       // If we are at max age we get contribution from same group last year
       if(a == n_age - Type(1)){
-        Type pred =  log(exp(logN(y - 1, a - 1) - F(y - 1, a - 1) - M(y - 1, a - 1))) +
+        Type pred = log(exp(logN(y - 1, a - 1) - F(y - 1, a - 1) - M(y - 1, a - 1))) +
                      log(exp(logN(y - 1, a) - F(y - 1, a) - M(y - 1, a)));
         nll -= dnorm(logN(y, a), pred, sigma_logN, true);
       } else{
