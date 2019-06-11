@@ -1,5 +1,15 @@
 #include <TMB.hpp>
 
+
+// Function that calculates spawning stock biomass (ssb). 
+// Paramereters: 
+// logN: Survival process 
+// F: Fishing 
+// M: Mortality 
+// SW: Stock mean weight 
+// MO: Fraction of stock that are mature
+// PF: Fraction applied before spawning. Applied to fishing process
+// PM: Fraction applied before spawning. Applied to mortality process
 template<class Type> 
 vector<Type> ssbF(matrix<Type> logN, matrix<Type> F, matrix<Type> M, 
                   matrix<Type> SW, matrix<Type> MO, matrix<Type> PF,
@@ -13,6 +23,7 @@ vector<Type> ssbF(matrix<Type> logN, matrix<Type> F, matrix<Type> M,
   vector<Type> ssb(n_year);
   ssb.setZero();
   
+  // sum over all age groups for each year
   for(int y  = 0; y < n_year; y++){
     for(int a = 0; a < n_age; a++){
       ssb(y) += MO(y, a) * SW(y, a) * exp(logN(y, a)) * exp(- PF(y, a) * F(y, a) - PM(y, a) * M(y, a));
@@ -50,10 +61,14 @@ Type objective_function<Type>::operator()(){
   ADREPORT(sigma_logR);
   
 
-  
+  // Negative log likelihood
   Type nll = 0; 
+  
+  //Number of years and age groups
   int n_year = Nobs.rows();
   int n_age = Nobs.cols(); 
+  
+  // Prediction for logN
   Type pred = 0; 
   
   // Calculate ssb 

@@ -1,7 +1,6 @@
 #include<TMB.hpp>
 
 // Helper function to ensure valid correlation 
-
 template<class Type> 
 Type trans(Type trans_rho){
   Type rho = (exp(trans_rho) - Type(1)) / (exp(trans_rho) + Type(1));
@@ -12,12 +11,12 @@ template<class Type>
 Type objective_function<Type>::operator()(){
   
   DATA_MATRIX(Fobs);
-  DATA_INTEGER(cormode); 
+  DATA_INTEGER(cormode); // Correlation structure
   
-  PARAMETER_MATRIX(logF);
-  PARAMETER_VECTOR(log_sigma_logF);
-  PARAMETER_VECTOR(trans_rho); 
-  PARAMETER(log_sigma_Fobs); 
+  PARAMETER_MATRIX(logF); // Fishing mortalitu for all ages and years 
+  PARAMETER_VECTOR(log_sigma_logF); // SD for all ages
+  PARAMETER_VECTOR(trans_rho); // Correlation
+  PARAMETER(log_sigma_Fobs); // SD for observations 
   
   
   // Number of years and age groups
@@ -33,11 +32,12 @@ Type objective_function<Type>::operator()(){
   // Report standard deviation of parameters
   ADREPORT(sigma_Fobs);
   ADREPORT(sigma_logF);
-  //ADREPORT(rho);
+
   
   // Covariance matrix for age groups 
   matrix<Type> Sigma(n_age, n_age);
   Sigma.setZero();
+  
   // Negative log likelihood
   Type nll = 0; 
   

@@ -28,8 +28,9 @@ Type objective_function<Type>::operator()(){
  // Number of observations 
  Type n = Robs.size(); 
  Type pred = 0; 
- // Contribution to likelihood from latent process logR
  
+ 
+ // Contribution to likelihood from latent process logR
  
  for(int i = 1; i < n; i++){
    

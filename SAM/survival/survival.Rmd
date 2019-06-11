@@ -8,11 +8,13 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(TMB)
+source("../../utils.R")
+
 ```
 
 ## **Survival**
 
-In the first example we looked at the recruitment process, where we estimated how many fish we expect to be born in a given year. The next step is to look at the survivial function for all age groups. This will be denoted $N_{a,y}$, where $a$ is the age of the fish and $y$ is the year. For example, $N_{1, 8}$ is the number of fish of age 1 in year 8 (i.e $R_8$). The number of fish next year equals the number of fish this year minus those who have died and added those who have been born. This can be expressed mathematically as:
+In the first example we looked at the recruitment process, where we estimated how many fish we expect to be born in a given year. The next step is to look at the survival function for all age groups. This will be denoted $N_{a,y}$, where $a$ is the age of the fish and $y$ is the year. For example, $N_{1, 8}$ is the number of fish of age 1 in year 8 (i.e $R_8$). The number of fish next year equals the number of fish this year minus those who have died and added those who have been born. This can be expressed mathematically as:
 
 \begin{align}
 \log N_{a,y} = \log N_{a-1,y-1} - F_{a-1,y-1} - M_{a-1, y-1} + \xi_{ay}, \quad \text{where } \xi_{ay} \sim  N(0, \sigma_S^2)
@@ -20,16 +22,17 @@ In the first example we looked at the recruitment process, where we estimated ho
 
 where $F$ is the fishing mortality and $M$ is the natural mortality. If our model contains a maximum age group $A$, then the survival for age $A$ is given by: 
 
-\[
-  \log N_{a,y} = \log N_{A-1,y-1} - F_{A-1,y-1} - M_{A-1, y-1} - \log N_{A,y-1} - F_{A,y-1} - M_{A, y-1},
-\]
+\begin{equation}
+  \label{eq:survival}
+  \log N_{a,y} = \log N_{A-1,y-1} - F_{A-1,y-1} - M_{A-1, y-1} - \log N_{A,y-1} - F_{A,y-1} - M_{A, y-1}, 
+\end{equation}
 where the contribution is the survival form last year in the age group below, but also from the same age group from last year, since this is the maximum age. 
 
 *** 
 
 ### Survival as state space model 
 
-As we did with the recruitment process, we will modell the recruitment as a state space model in the following way: 
+As we did with the recruitment process, we will model the recruitment as a state space model in the following way: 
 
 \[
   \log N_{ay}^{(\text{obs})} = \log N_{a,y} + \epsilon_{ay}, \quad \text{where } \epsilon_{ay} \sim N(0, \sigma^2).
@@ -42,7 +45,7 @@ As we did with the recruitment process, we will modell the recruitment as a stat
 
 <details> 
   <summary> R code </summary> 
-```{r, echo = TRUE, warning=F}
+```{r, echo = TRUE, warning=F, results='hide'}
 load("Nobs.RData")
 matplot(log(Nobs$Nobs), main="logN")
 
@@ -123,7 +126,7 @@ Type objective_function<Type>::operator()(){
                      log(exp(logN(y - 1, a) - F(y - 1, a) - M(y - 1, a)));
         nll -= dnorm(logN(y, a), pred, sigma_logN, true);
       } else{
-        nll -= dnorm(logN(y ,a), logN(y - 1, a - 1) - F(y - 1, a - 1) - M(y - 1, a - 1), sigma_logN, true);
+       // see exercise below
       }
     }
   }
@@ -179,7 +182,7 @@ for(int y = 1; y < n_year; y++){
 </details> 
 
 <details> 
-  <summary> Contribtion from $N_{a,y}$ for $a > 1$ </summary> 
+  <summary> Contribution from $N_{a,y}$ for $a > 1$ </summary> 
 ```c++
 // survival for age greater than zero
 
@@ -193,7 +196,7 @@ for(int y = 1; y < n_year; y++){
                    log(exp(logN(y - 1, a) - F(y - 1, a) - M(y - 1, a)));
       nll -= dnorm(logN(y, a), pred, sigma_logN, true);
     } else{
-      nll -= dnorm(logN(y ,a), logN(y - 1, a - 1) - F(y - 1, a - 1) - M(y - 1, a - 1), sigma_logN, true);
+      // see exercise below 
     }
   }
 }
@@ -217,3 +220,165 @@ return nll;
 
 ```
 
+*** 
+
+### Exercise 1
+
+1. 
+<details> 
+  <summary> Implement the contribution from $N_{a,y}$ for $1 < a < A$. </summary> 
+    ```c++
+        nll -= dnorm(logN(y ,a), logN(y - 1, a - 1) - F(y - 1, a - 1) - M(y - 1, a - 1), sigma_logN, true);
+    ```
+</details> 
+
+
+*** 
+
+## Fishing mortality 
+
+The last latent process in SAM is the fishing mortality $F_{a,y}$ for age $a$ in year $y$. As with the survival process, we will model this as a random walk with observational error, but we will also have add a correlation structure in the year dimension. If we let $F_y = (F_{1,y}, \ldots, F_{A,y})$, we can formulate a model for $F_y$ as
+
+\[
+  \log F_y = \log F_{y-1} + \psi_y,
+\]
+
+where $\psi$ follows an A (maximum age) -dimensional multivariate normal distribution with expectation 0 and covariance matrix $\Sigma$. There are many options for the structure of $\Sigma$, but we will focus on three alternatives: 
+
+1. Age groups are independent: $\Sigma_{ij} = 0$ for year $i \ne j$.
+2. Same correlation between all age groups (compound symmetry): $\Sigma_{ij} = \rho \sqrt{\Sigma_{ii} \Sigma_{jj}}$.
+3. AR(1) structure with exponentially decaying correlations: $\Sigma_{ij} = \rho^{|i-j|}\sqrt{\Sigma_{ii} \Sigma_{jj}}.$
+
+As with the survival $N_{a,y}$, we observe 
+\[
+  \log F_{a,y}^\text{obs} = \log F_{a,y} + \epsilon_{ay}, \quad \epsilon_{ay} \sim N(0, \sigma_{F^\text{obs}}^2)
+\]
+
+
+*** 
+
+### Full code for example 
+<details> 
+  <summary> R code </summary> 
+```{r,echo=FALSE, comment=""}
+include_source("Fobs.R", linesToInclud=c(1:999))
+```
+</details>
+
+<details> 
+  <summary> C++ code </summary> 
+```c++
+#include<TMB.hpp>
+
+// Helper function to ensure valid correlation 
+template<class Type> 
+Type trans(Type trans_rho){
+  Type rho = (exp(trans_rho) - Type(1)) / (exp(trans_rho) + Type(1));
+  return rho;
+}
+
+template<class Type> 
+Type objective_function<Type>::operator()(){
+  
+  DATA_MATRIX(Fobs);
+  DATA_INTEGER(cormode); // Correlation structure
+  
+  PARAMETER_MATRIX(logF); // Fishing mortalitu for all ages and years 
+  PARAMETER_VECTOR(log_sigma_logF); // SD for all ages
+  PARAMETER_VECTOR(trans_rho); // Correlation
+  PARAMETER(log_sigma_Fobs); // SD for observations 
+  
+  
+  // Number of years and age groups
+  int n_year = Fobs.rows();
+  int n_age = Fobs.cols();
+  
+  // Transform parameters 
+  Type sigma_Fobs = exp(log_sigma_Fobs); 
+  vector<Type> sigma_logF = exp(log_sigma_logF); 
+  Type rho = 0;
+  
+
+  // Report standard deviation of parameters
+  ADREPORT(sigma_Fobs);
+  ADREPORT(sigma_logF);
+
+  
+  // Covariance matrix for age groups 
+  matrix<Type> Sigma(n_age, n_age);
+  Sigma.setZero();
+  
+  // Negative log likelihood
+  Type nll = 0; 
+  
+  
+  switch(cormode){
+  
+    // Independent
+    case 0:
+      Sigma.diagonal() = sigma_logF * sigma_logF;
+    break;
+      
+    // Compound symmertry
+    case 1:
+      Sigma.diagonal() = sigma_logF * sigma_logF;
+      rho = trans(trans_rho(0)); 
+      for(int i = 0; i < n_age; i++){
+        for(int j = 0; j < i; j++){
+          Sigma(i, j) = rho * sigma_logF(i) * sigma_logF(j);
+          Sigma(j, i) = Sigma(i, j);
+        }
+      }
+    break;
+      
+    // AR(1) 
+    case 2: 
+      // See exercise below
+    break;
+      
+    default:
+      std::cout<<"Error: This cormode not implemented yet."<<std::endl;
+      exit(EXIT_FAILURE);
+    break;
+  }
+  
+  // Contribution from latent process
+  
+  // Make zero mean multivariate object with covariance Sigma
+  density::MVNORM_t<Type> negative_mvn(Sigma);
+  ADREPORT(Sigma);
+  
+  
+  for(int y = 1; y < n_year; y++){
+    nll += negative_mvn(logF.row(y) - logF.row(y - 1)); // Returns negative log likelihood  
+  }
+  
+  // Contribution from observations
+  for(int y = 0; y < n_year; y++){
+    for(int a = 0; a < n_age; a++){
+      nll -= dnorm(log(Fobs(y, a)), logF(y, a), sigma_Fobs, true);
+    }
+  }
+  
+  return nll;
+  
+}
+```
+
+*** 
+
+### Exercise 2
+
+<details> 
+  <summary> Implement the AR(1) correlation structure. Tips: Use ```Sigma.diagonal()```to fill the diagonal     of the covariance matrix. </summary> 
+    ```c++ 
+        Sigma.diagonal() = sigma_logF * sigma_logF;
+        rho = trans(trans_rho(0)); 
+        for(int i = 0; i < n_age; i++){
+          for(int j = 0; j < i; j++){
+            Sigma(i, j) = pow(rho, Type(i - j)) * sigma_logF(i) * sigma_logF(j);
+            Sigma(j, i) = Sigma(i, j);
+          }
+        }
+    ```
+</details> 
