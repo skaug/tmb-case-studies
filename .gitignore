@@ -1,0 +1,5 @@
+*.o
+*.so
+*.dll
+*.html
+*.Rhistory
