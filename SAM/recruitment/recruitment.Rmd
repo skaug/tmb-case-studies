@@ -19,7 +19,7 @@ In this example you learn:
 * Extract quantities from the model in R.
 
 ***
-#### Description of process
+#### Recruitment as a random walk
 
 In the SAM model we model the recruitment process ($R_y$) as an unobserved (latent) process, but we will in this example assume that we observe this process. The simplest way to model recruitment is as a random walk: 
 
@@ -82,6 +82,46 @@ Type objective_function<Type>::operator()(){
   return(nll); 
 }
 ```
+</details> 
+
+***
+
+#### C++ code step-by-step 
+
+<details> 
+  <summary> Load TMB library </summary> 
+```c++
+#include <TMB.hpp>
+
+template<class Type> 
+Type objective_function<Type>::operator()(){
+
+```
+</details> 
+
+<details> 
+  <summary> Read data and parameters from R </summary> 
+```c++
+// Data 
+DATA_VECTOR(Robs);
+
+// Parameter
+PARAMETER(log_sigma_r);
+``` 
+</details>   
+
+<details> 
+  <summary> Transform parameter </summary> 
+```c+++
+  Type sigma_r = exp(log_sigma_r);
+  ADREPORT(sigma_r); // Report standard deviation of sigma_r back to R
+```
+</details> 
+  
+  
+<details> 
+  <summary> Likelihood contribution from observations </summary> 
+  See exercise 1.2
 </details> 
 
 ***
@@ -172,8 +212,8 @@ Type objective_function<Type>::operator()(){
   PARAMETER(log_sigma_Robs); 
   PARAMETER(log_sigma_logR); 
   
-  // Transform data
-  vector<Type> log_Robs = log(Robs);
+ // Transform data
+ vector<Type> log_Robs = log(Robs);
   
  // Transform standard deviations
  Type sigma_Robs = exp(log_sigma_Robs); 
@@ -194,7 +234,7 @@ Type objective_function<Type>::operator()(){
  
  // Contribution to likelihood from observations Robs
   
- // See exercise 2 below
+ // See exercise 2.2 below
  
  return(nll);
   
@@ -203,6 +243,67 @@ Type objective_function<Type>::operator()(){
     
 </details> 
 
+
+
+#### C++ code step-by-step 
+
+<details> 
+  <summary> Load TMB library </summary> 
+```c++
+  #include <TMB.hpp>
+  
+  template<class Type> 
+  Type objective_function<Type>::operator()(){
+
+```
+</details> 
+
+<details> 
+  <summary> Read data and parameters from R </summary> 
+```c++
+  DATA_VECTOR(Robs); 
+  
+  PARAMETER_VECTOR(logR); // Latent process 
+  PARAMETER(log_sigma_Robs); 
+  PARAMETER(log_sigma_logR); 
+  
+  // Transform data
+  vector<Type> log_Robs = log(Robs);
+``` 
+</details>   
+
+<details> 
+  <summary> Transform parameters </summary> 
+```c+++
+ // Transform standard deviations
+ Type sigma_Robs = exp(log_sigma_Robs); 
+ Type sigma_logR = exp(log_sigma_logR);
+ 
+ ADREPORT(sigma_Robs); 
+ ADREPORT(sigma_logR); 
+```
+</details> 
+  
+  
+<details> 
+  <summary> Likelihood contribution from latent process and observations</summary> 
+```c++
+ // Contribution to likelihood from latent process logR
+ for(int i = 1; i < n; i++){
+   nll -= dnorm(logR(i), logR(i - 1), sigma_logR, true);
+ }
+ 
+ // Contribution to likelihood from observations Robs
+  
+ // See exercise 2.2 below
+ 
+ return(nll);
+  
+}
+```
+</details> 
+
+
 ***
 #### Exercise 2
 
@@ -210,11 +311,15 @@ Type objective_function<Type>::operator()(){
 <details> 
   <summary> Write down the joint negative log likelihood of the recruitment state-space model </summary> 
   Let $R^{\text(obs)} = (R_1^\text{obs}, \ldots, R_T^\text{obs})$ and $R = (R_1, \ldots, R_T)$. The joint distribution of        $(R^\text{obs}, R)$ can be written as 
-  
   \begin{align}
     L(\theta) &= \int f(R^\text{obs}, R) dR = \int f(R^\text{obs} | R) f(R) dR \\
     &= \int f(R_1^\text{obs} | R_1) f(R_1) \prod_{y=2}^T f(R_y^\text{obs} | R_y) f(R_y) dR
   \end{align}
+  The negative log likelihood we need to implement in TMB is therefore 
+  \[
+    - \log L(\theta) = -N(R_1,\sigma_{R^\text{obs}}^2) - \sum_{y=2}^T N(R_y,\sigma_{R^\text{obs}}^2) - \sum_{y=2}^T \log             N(R_{y-1}, \sigma_R^2),
+  \]
+  where the two first terms are the contribution from the observations, while the last sum is the likelihood contribution from   the unobserved process. 
   
 </details> 
 
@@ -359,8 +464,6 @@ Type objective_function<Type>::operator()(){
  Type n = Robs.size(); 
  Type pred = 0; 
  // Contribution to likelihood from latent process logR
- 
- 
  for(int i = 1; i < n; i++){
    
    switch(method){
@@ -373,7 +476,7 @@ Type objective_function<Type>::operator()(){
      break;
 
    case 2:
-     pred = bh(0) + log(SSB(i - 1)) - log(Type(1.0) + exp(bh(1)) * SSB(i - 1));
+     // See exercice below
      break;
 
    default:
@@ -397,4 +500,17 @@ Type objective_function<Type>::operator()(){
     
 </details> 
 
+***
+### Exercise 3
 
+1. 
+<details> 
+  <summary> Implement the Beverton-Holt model in the TMB program (note that the parameters are on log scale) 
+  </summary> 
+
+    ```c++
+        case 2:
+         pred = bh(0) + log(SSB(i - 1)) - log(Type(1.0) + exp(bh(1)) * SSB(i - 1));
+         break;
+    ``` 
+</details> 
