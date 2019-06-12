@@ -382,3 +382,70 @@ Type objective_function<Type>::operator()(){
         }
     ```
 </details> 
+
+
+2. 
+<details> 
+  <summary> Compare the models with different correlation structure and find the best one based on AUC      </summary> 
+  
+```{r, eval=T, results='hide'}
+library(TMB)
+compile("Fobs.cpp")
+dyn.load(dynlib("Fobs"))
+
+
+load("Fobs.Rdata")
+
+# Calculate AIC for a given model
+TMBAIC <- function(opt){
+    k <- length(opt$par)
+    aic <- 2 * k + 2 * opt$objective
+    return(aic)
+  }
+
+
+# No correlation - Model 1 -----
+data <- list(Fobs = Fobs$Fobs,
+             cormode = 0)
+
+param <- list(logF = matrix(0, nrow = nrow(Fobs$Fobs), ncol = ncol(Fobs$Fobs)),
+              log_sigma_logF = rep(0, ncol(Fobs$Fobs)),
+              trans_rho = if(data$cormode == 0){numeric(0)} else{0.1},
+              log_sigma_Fobs = 0)
+
+obj_mod0 <- MakeADFun(data, param, random = "logF", DLL = "Fobs")
+opt_mod0 <- nlminb(obj_mod0$par, obj_mod0$fn, obj_mod0$gr)
+
+
+# Compund symmetry - Model 2 ------
+data <- list(Fobs = Fobs$Fobs,
+             cormode = 1)
+
+param <- list(logF = matrix(0, nrow = nrow(Fobs$Fobs), ncol = ncol(Fobs$Fobs)),
+              log_sigma_logF = rep(0, ncol(Fobs$Fobs)),
+              trans_rho = if(data$cormode == 0){numeric(0)} else{0.1},
+              log_sigma_Fobs = 0)
+
+obj_mod1 <- MakeADFun(data, param, random = "logF", DLL = "Fobs")
+opt_mod1 <- nlminb(obj_mod1$par, obj_mod1$fn, obj_mod1$gr)
+
+
+# AR(1) - Model 3 ------
+data <- list(Fobs = Fobs$Fobs,
+             cormode = 2)
+
+param <- list(logF = matrix(0, nrow = nrow(Fobs$Fobs), ncol = ncol(Fobs$Fobs)),
+              log_sigma_logF = rep(0, ncol(Fobs$Fobs)),
+              trans_rho = if(data$cormode == 0){numeric(0)} else{0.1},
+              log_sigma_Fobs = 0)
+
+obj_mod2 <- MakeADFun(data, param, random = "logF", DLL = "Fobs")
+opt_mod2 <- nlminb(obj_mod2$par, obj_mod2$fn, obj_mod2$gr)
+
+# Calculate AIC for all models
+TMBAIC(opt_mod0)
+TMBAIC(opt_mod1)
+TMBAIC(opt_mod2)
+
+```
+</details> 

@@ -1,0 +1,16 @@
+---
+title: "observations"
+author: "Hans Skaug, Jens Wahl, Olav Breivik"
+date: "12 juni 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(TMB)
+source("../../utils.R")
+```
+
+## **Observations**
+
+So far we have locked at the three main processes that drives the SAM model, namely the recruitment $N_{1,y}$, survival $N_{a,y}, a > 1$ and the fishing mortality $F_{a,y}$. We have treated them as processes that we observe, but in SAM the are all unobserved processes. 
