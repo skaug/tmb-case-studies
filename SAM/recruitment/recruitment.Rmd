@@ -350,20 +350,22 @@ Type objective_function<Type>::operator()(){
 ***
 ### Using spawning stock biomass (SSB) to predict recruitment.
 
-Instead of letting the recruitment be a function of the recruitment from the year before, we can use the spawning stock biomass from last year to predict the recruitment. We will look at two popular options: 
+Instead of letting the recruitment be a function of the recruitment from the year before, we can use the spawning stock biomass from last year to predict the recruitment. 
+We will look at two recruitment functions: 
 
-* Richer: $RS(SSB) = \alpha SSB e^{-\beta SSB}$
-* Beverton-Holt: $RS(SSB) = \frac{\alpha SSB}{1 + \beta SSB}$
+* Richer: $f(SSB) = \alpha\cdot SSB \cdot e^{-\beta\cdot SSB}$
+* Beverton-Holt: $f(SSB) = \frac{\alpha\cdot SSB}{1 + \beta\cdot SSB}$
 
 We can then setup our recruitment process like: 
 
 \[
-  \log R_y = \log RS(SSB_{y - 1}) + \epsilon_y, \quad \text{where } \epsilon \sim N(0, \sigma_R^2)
+  \log R_y = \log f(SSB_{y - 1}) + \epsilon_y, \quad \text{where } \epsilon \sim N(0, \sigma_R^2)
 \]
 
 
+
 *** 
-#### Full code for example
+#### Full code for example (Ricker)
 
 <details> 
   <summary> R code </summary> 
