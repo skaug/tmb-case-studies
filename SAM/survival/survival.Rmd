@@ -14,7 +14,10 @@ source("../../utils.R")
 
 ## **Survival**
 
-In the first example we looked at the recruitment process, where we estimated how many fish we expect to be born in a given year. The next step is to look at the survival function for all age groups. This will be denoted $N_{a,y}$, where $a$ is the age of the fish and $y$ is the year. For example, $N_{1, 8}$ is the number of fish of age 1 in year 8 (i.e $R_8$). The number of fish next year equals the number of fish this year minus those who have died and added those who have been born. This can be expressed mathematically as:
+In the first example we looked at the recruitment process, where we modeled the number of fish
+born ($R_y$) in year $y$. The next step is to look at survival of individulas aged $a$ 
+from one year to the next, i.e. age-structured population dynamics. Denote by $N_{a,y}$ the number
+of fish aged $a$ alive in year $y$. For example, $N_{1, 8}$ is the number of fish of age 1 in year 8 (i.e $R_8$). The number of fish next year equals the number of fish this year minus those who have died and added those who have been born. This can be expressed mathematically as:
 
 \begin{align}
 \log N_{a,y} = \log N_{a-1,y-1} - F_{a-1,y-1} - M_{a-1, y-1} + \xi_{ay}, \quad \text{where } \xi_{ay} \sim  N(0, \sigma_S^2)
