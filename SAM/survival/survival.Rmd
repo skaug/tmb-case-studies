@@ -389,7 +389,6 @@ Type objective_function<Type>::operator()(){
   <summary> Compare the models with different correlation structure and find the best one based on AUC      </summary> 
   
 ```{r, eval=T, results='hide'}
-library(TMB)
 compile("Fobs.cpp")
 dyn.load(dynlib("Fobs"))
 
