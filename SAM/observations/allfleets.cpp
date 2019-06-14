@@ -25,8 +25,6 @@ Type objective_function<Type>::operator()(){
   DATA_VECTOR(obs); // observations accross age and year
   DATA_IMATRIX(keyQ); // Index for proportional constant 
   DATA_IMATRIX(keySd); // Index for observed age group within survey 
-  //--------------------------------------------------------
-  
   
   
   // ------- PARAMETER import  and transformations----------------------
@@ -37,7 +35,7 @@ Type objective_function<Type>::operator()(){
   // Transform log_sigma_s
   vector<Type> sigma_s = exp(log_sigma_s); 
   ADREPORT(sigma_s); 
-  //-----------------------------------------------
+
   
   //-----Define variables used later 
   int n = obs.size(); // Number of observations 
@@ -52,7 +50,7 @@ Type objective_function<Type>::operator()(){
   
   // Total mortality rate
   Type Z = 0; 
-  //----------------------------------
+
   
  //--------------- Build likelihood function--------------------
  
@@ -77,11 +75,11 @@ Type objective_function<Type>::operator()(){
     Z = F(year, age) + M(year, age); 
     
     switch(fleetTypes(fleet)){
-    case 0: 
+    case 0: // catch fleet 
       logPred(i) = log(F(year, age)) - log(Z) + log(N(year, age)) + log(Type(1) - exp(-Z));  
     break; 
     
-    case 2:
+    case 2: // survey fleet
       logPred(i) = logQ(keyQ(fleet, age)) + log(N(year, age)) - sampleTimes(fleet) * Z; 
     break; 
       

@@ -1,5 +1,5 @@
 ---
-title: "observations"
+title: "Observations"
 author: "Hans Skaug, Jens Wahl, Olav Breivik"
 date: "12 juni 2019"
 output: html_document
@@ -74,7 +74,7 @@ include_source("Cobs.cpp", linesToInclud=c(1:999))
 
 *** 
 
-### Including survey fleets
+## Including survey fleets
 
 We will now extend the model we just implemented to include survey fleets, but also handle missing data. This will be done by adding them as random effects and estimating them. 
 
@@ -92,16 +92,72 @@ where
 
 ### The data
 
-* The data list in ```allfleets.RData``` contains a vector ```obs``` with all observations (catches
+* The data list in `allfleets.RData` contains a vector `obs` with all observations (catches
 and surveys).
 * In addition the data list contains a matrix ```aux``` with three columns ```(year, fleet, age)```.
 The $i$th row in this matrix contains the information for the $i$th element in the Cobs vector.
 * Data also contain a vector ```fleetTypes``` with three elements. ‘0’ indicates a catch fleet
 and ‘2’ indicates a survey fleet.
-* Finally the data contains a vector ```sampleTimes``` with three elements, which is the $day^{(s)}/365$
+* Finally the data contains a vector `sampleTimes` with three elements, which is the $day^{(s)}/365$
 values (only used for the survey fleets).
 
 ### Handling missing observations
 
-Some of the observations in ```obs```vector are missing ```NA``. We could just remove these from the likelihood, but a smarter way to deal with them is to treat them as random effects. 
+Some of the observations in the `obs` vector are missing `NA`. We could just remove these from the likelihood, but a smarter way to deal with them is to treat them as random effects. On the R-side we add the missing values to the parameter list: 
+```{r, eval = F}
+missing = numeric(sum(is.na(allfleets$obs)))
+```
+
+We can make a helper function for dealing with missing values. This can be pasted right below `#include<TMB.hpp>`: 
+
+```c++
+// Function that checks if data is missing 
+// Returns logical true or false
+template<class Type> 
+bool isNA(Type x){
+  return R_IsNA(asDouble(x));
+}
+```
+
+and impute the missing values: 
+
+```c++
+// count missing values 
+int index_is_missing = 0; 
+for(int i = 0; i < n; i++){
+ // Estimate missing data
+ if(isNA(obs(i))){
+   obs(i) = exp(missing(index_is_missing++));
+ }
+}
+```
+
+## Configuring parameters 
+
+In this data set we have 3 fleets and 9 ages, but not all fleets have all ages. We only need to focus on fleet 2 and 3, as they are the only survey fleets. If we define an integer data matrix like 
+
+```{r, eval = F}
+allfleets$keyQ <- rbind(rep(NA, 9), 
+                        c(NA, 0, 1, 2, 3, 4, 5, 6, NA),
+                        c(7, 8, 9, 10, 11, 12, NA, NA, NA))
+```
+
+and a parameter like 
+
+```{r, eval = F}
+logQ = numeric(max(allfleets$keyQ, na.rm = T) + 1)
+```
+
+we can us the table to look up which model parameter we should use for a given fleet $f$ and a age $a$. This can be done like: 
+
+```c++ 
+case 2:
+  logPred(i) = logQ(keyQ(fleet, age)) + log(N(year, age)) - sampleTimes(fleet) * Z; 
+break; 
+```
+
 ### Exercise 
+
+1. 
+<details> 
+  <summary> Extend the privous model for catch-at-age to include surveys. </summary> 
