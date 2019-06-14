@@ -22,6 +22,14 @@ rep <- sdreport(obj)
 srep <- summary(rep)
 logPred <- srep[rownames(srep) == "logPred", 1]
 
-
 matplot(rownames(Cobs$N), xtabs(log(Cobs$Cobs)~Cobs$aux[, 1] + Cobs$aux[, 3]), ylab="Log C", xlab="Year")
 matplot(rownames(Cobs$N), xtabs(logPred~Cobs$aux[,1]+Cobs$aux[,3]), type="l", add=TRUE)
+
+
+# Plot year 4
+
+Cobs_true <-  xtabs(log(Cobs$Cobs)~Cobs$aux[, 1] + Cobs$aux[, 3])
+Cobs_estimated <-  xtabs(logPred~Cobs$aux[,1]+Cobs$aux[,3])
+
+plot(rownames(Cobs_true), Cobs_true[, 4], type = "l")
+lines(rownames(Cobs_estimated), Cobs_estimated[, 4], type = "l", col = "red")

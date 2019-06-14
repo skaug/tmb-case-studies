@@ -13,4 +13,95 @@ source("../../utils.R")
 
 ## **Observations**
 
-So far we have locked at the three main processes that drives the SAM model, namely the recruitment $N_{1,y}$, survival $N_{a,y}, a > 1$ and the fishing mortality $F_{a,y}$. We have treated them as processes that we observe, but in SAM the are all unobserved processes. 
+So far we have looked at the three main processes that drives the SAM model, namely the recruitment $N_{1,y}$, survival $N_{a,y}, a > 1$ and the fishing mortality $F_{a,y}$. We have treated them as processes that we observe, but in SAM the are all unobserved processes.
+We will in this exercise focus on the observational equation for 
+
+* Catch-at-age $C_{a,y}$
+* Survey index-at-age $I_{a,y}$
+
+Even thought unobserved in the full SAM model, we will in this exercise assume that we have observed the recruitment, survival and fishing mortality. 
+
+***
+
+### Catch-at-age
+
+The catch-at-age is predicted by the catch equation: 
+
+\[
+  \hat{C}_{a,y} = \frac{F_{a,y}}{F_{a,y} + M_{a,y}} N_{a,y} (1 - e^{- F_{a,y} - M_{a,y}}),
+\]
+
+where $N$ is the stocksize, $F$ is the fishing mortality and $M$ is natural mortality. This equation is based on the assumption that the suvival cohort size will develop over time accoring to 
+\[
+  \frac{dN}{dt} = -(F + M)N,
+\]
+which has the solution $N = N_0 e^{-F-M}$, meaning that the dead population size is $N_0(1 - e^{-F-M})$. This means that the equation $\frac{F_{a,y}}{F_{a,y} + M_{a,y}} N_{a,y} (1 - e^{- F_{a,y} - M_{a,y}})$ tells us the fraction of the dead population caused by fishing.   
+
+For convinience, we will define the total mortality as $Z_{a,y} = F_{a,y} + M_{a,y}$. Taking the logarithm and assuming gaussian noise, we can write over model as 
+
+\[
+  \log C_{a,y} = \log F_{a,y} - \log Z_{a,y} + \log N_{a,y} + log(1 - e^{-Z_{a,y}}) + \epsilon_{a,y},
+\]
+where $\epsilon_{a,y} \sim N(0, \sigma^2)$. 
+
+### The data 
+
+* The data list in ```Cobs.RData``` contains a vector ```Cobs``` of the catch observations. It is a
+vector not a matrix.
+
+* In addition the data list contains a matrix ```aux``` with three columns ```(year, fleet, age)```.
+The $i$th row in this matrix contains the information for the $i$th element in the Cobs vector.
+
+* Further the data list contains information on ```F, N, M, minYear```, and ```minAge```. 
+
+*** 
+
+
+### Full code for example 
+<details> 
+  <summary> R code </summary> 
+```{r,echo=FALSE, comment=""}
+include_source("Cobs.R", linesToInclud=c(1:999))
+```
+</details>
+
+<details> <summary> C++ code</summary>
+```{r,echo=FALSE, comment=""}
+include_source("Cobs.cpp", linesToInclud=c(1:999))
+```
+</details>
+
+
+*** 
+
+### Including survey fleets
+
+We will now extend the model we just implemented to include survey fleets, but also handle missing data. This will be done by adding them as random effects and estimating them. 
+
+The survey indices are modelles as: 
+\[
+  \log I_{y}^{(s)} = \log ( Q_a^{(s)} e^{-(F_{a,y} + M_{a,y})day^{(s)}/365} N_{a,y}) + \epsilon^s_{a,y},  
+\]
+
+where 
+
+* $Q_a^{(s)}$ is the proportionality coefficient for age $a$ and survey $s$. This will be estimated. 
+* $day^{(s)}/365$ is the time into the year the survey $s$ is conducted. 
+
+***
+
+### The data
+
+* The data list in ```allfleets.RData``` contains a vector ```obs``` with all observations (catches
+and surveys).
+* In addition the data list contains a matrix ```aux``` with three columns ```(year, fleet, age)```.
+The $i$th row in this matrix contains the information for the $i$th element in the Cobs vector.
+* Data also contain a vector ```fleetTypes``` with three elements. ‘0’ indicates a catch fleet
+and ‘2’ indicates a survey fleet.
+* Finally the data contains a vector ```sampleTimes``` with three elements, which is the $day^{(s)}/365$
+values (only used for the survey fleets).
+
+### Handling missing observations
+
+Some of the observations in ```obs```vector are missing ```NA``. We could just remove these from the likelihood, but a smarter way to deal with them is to treat them as random effects. 
+### Exercise 

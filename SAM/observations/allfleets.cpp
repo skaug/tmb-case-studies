@@ -94,7 +94,6 @@ Type objective_function<Type>::operator()(){
     nll -= dnorm(log(obs(i)), logPred(i), sigma_s(keySd(fleet, age)), true);
   }
   
-  //ADREPORT(logPred);
   REPORT(logPred);
   return nll; 
   

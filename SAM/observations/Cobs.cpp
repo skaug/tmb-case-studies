@@ -3,24 +3,23 @@
 template<class Type> 
 Type objective_function<Type>::operator()(){
   
-  DATA_VECTOR(Cobs); 
-  DATA_MATRIX(N);
-  DATA_MATRIX(F);
-  DATA_MATRIX(M);
-  DATA_IMATRIX(aux); // Integer matrix
+  DATA_VECTOR(Cobs); // Catch-at-age
+  DATA_MATRIX(N); // Stocksize
+  DATA_MATRIX(F); // Fishing mortality
+  DATA_MATRIX(M); // Natural mortality
+  DATA_IMATRIX(aux); // Integer matrix with year and age for each observation
   DATA_INTEGER(minAge); // Lowest age 
   DATA_INTEGER(minYear); // First observed year
   
-  // row i in aux corresponds to element i in Cobs
+  // Note: row i in aux corresponds to element i in Cobs
   
   PARAMETER(log_sigma); 
   
   Type sigma = exp(log_sigma); 
   ADREPORT(sigma); 
   
-  // Report uncertainty about prediction 
   int n = Cobs.size(); // Number of observations 
-  vector<Type> logPred(n);
+  vector<Type> logPred(n); // Predictions
   logPred.setZero();
   
   // Get year and and for each observation
@@ -43,6 +42,7 @@ Type objective_function<Type>::operator()(){
     nll -= dnorm(log(Cobs(i)), logPred(i), sigma, true);
   }
   
+  // Report uncertainty about prediction 
   ADREPORT(logPred);
   
   return nll; 
