@@ -13,36 +13,38 @@ source("../../utils.R")
 
 ## **Observations**
 
-So far we have looked at the three main processes that drives the SAM model, namely the recruitment $N_{1,y}$, survival $N_{a,y}, a > 1$ and the fishing mortality $F_{a,y}$. We have treated them as processes that we observe, but in SAM the are all unobserved processes.
-We will in this exercise focus on the observational equation for 
+So far we have looked at the three main processes that drive the SAM model, namely the recruitment $R_{y}$ ($N_{1,y}$), natural mortality $M_{a,y}$ and the fishing mortality $F_{a,y}$. We have treated these as observable processes, but in reality they can only be indirectly measured, so SAM treats them
+as latent processes. The two types of measurements explicitely modelled in SAM are: 
 
 * Catch-at-age $C_{a,y}$
 * Survey index-at-age $I_{a,y}$
 
-Even thought unobserved in the full SAM model, we will in this exercise assume that we have observed the recruitment, survival and fishing mortality. 
+In this exercise we will focus on the observational equations for $C_{a,y}$ and $I_{a,y}$. 
+For simplicity we treat $R_{y}$, $M_{a,y}$ 
+and $F_{a,y}$ as fully observed. 
 
 ***
 
 ### Catch-at-age
 
-The catch-at-age is predicted by the catch equation: 
+The catch-at-age is predicted by the Baranov catch equation: 
 
 \[
-  \hat{C}_{a,y} = \frac{F_{a,y}}{F_{a,y} + M_{a,y}} N_{a,y} (1 - e^{- F_{a,y} - M_{a,y}}),
+  C_{a,y} = \frac{F_{a,y}}{F_{a,y} + M_{a,y}} N_{a,y} (1 - e^{- F_{a,y} - M_{a,y}}).
 \]
-
-where $N$ is the stocksize, $F$ is the fishing mortality and $M$ is natural mortality. This equation is based on the assumption that the suvival cohort size will develop over time accoring to 
+This equation is based on the assumption that the surviving part of each cohort develops over time 
+accoring to the differential equation: 
 \[
   \frac{dN}{dt} = -(F + M)N,
 \]
-which has the solution $N = N_0 e^{-F-M}$, meaning that the dead population size is $N_0(1 - e^{-F-M})$. This means that the equation $\frac{F_{a,y}}{F_{a,y} + M_{a,y}} N_{a,y} (1 - e^{- F_{a,y} - M_{a,y}})$ tells us the fraction of the dead population caused by fishing.   
+which has the solution $N = N_0 e^{-F-M}$, meaning that the dead cohort size is $N_0(1 - e^{-F-M})$. 
+Combined with the fact that the proportion of deaths due to fishing is $F_{a,y}/(F_{a,y} + M_{a,y})$ gives the Baranov catch equation.   
 
-For convinience, we will define the total mortality as $Z_{a,y} = F_{a,y} + M_{a,y}$. Taking the logarithm and assuming gaussian noise, we can write over model as 
-
+For convinience, we will define the total mortality as $Z_{a,y} = F_{a,y} + M_{a,y}$. Taking the logarithm and assuming gaussian observation noise ($\epsilon_{a,y}$), we can write our model as 
 \[
   \log C_{a,y} = \log F_{a,y} - \log Z_{a,y} + \log N_{a,y} + log(1 - e^{-Z_{a,y}}) + \epsilon_{a,y},
 \]
-where $\epsilon_{a,y} \sim N(0, \sigma^2)$. 
+where $\epsilon_{a,y} \sim N(0,\sigma^2)$. 
 
 ### The data 
 
