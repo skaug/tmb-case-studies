@@ -14,7 +14,7 @@ source("../../utils.R")
 ## **Observations**
 
 So far we have looked at the three main processes that drive the SAM model, namely the recruitment $R_{y}$ ($N_{1,y}$), natural mortality $M_{a,y}$ and the fishing mortality $F_{a,y}$. We have treated these as observable processes, but in reality they can only be indirectly measured, so SAM treats them
-as latent processes. The two types of measurements explicitely modelled in SAM are: 
+as latent processes. The two types of measurements explicitly modeled in SAM are: 
 
 * Catch-at-age $C_{a,y}$
 * Survey index-at-age $I_{a,y}$
@@ -80,7 +80,7 @@ include_source("Cobs.cpp", linesToInclud=c(1:999))
 
 We will now extend the model we just implemented to include survey fleets, but also handle missing data. This will be done by adding them as random effects and estimating them. 
 
-The survey indices are modelles as: 
+The survey indices are models as: 
 \[
   \log I_{y}^{(s)} = \log ( Q_a^{(s)} e^{-(F_{a,y} + M_{a,y})day^{(s)}/365} N_{a,y}) + \epsilon^s_{a,y},  
 \]
@@ -162,4 +162,4 @@ break;
 
 1. 
 <details> 
-  <summary> Extend the privous model for catch-at-age to include surveys. </summary> 
+  <summary> Extend the previous model for catch-at-age to include surveys. </summary> 
