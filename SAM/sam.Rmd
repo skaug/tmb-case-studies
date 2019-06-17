@@ -7,10 +7,9 @@ source("../utils.R")
 
 
 ## **Stock assessment model (SAM)** 
-In this example you learn:
+In the examples [recruitment](https://github.com/skaug/tmb-case-studies/tree/jens/dev/SAM/recruitment), [survival](https://github.com/skaug/tmb-case-studies/tree/jens/dev/SAM/survival) and [observations](https://github.com/skaug/tmb-case-studies/tree/jens/dev/SAM/observations) we went in detail trough key parts of SAM. In this example we have nested these key parts together and illustrate a full implementation of SAM. In this example you learn:
 
-* The basic ideas behind SAM
-* How to estimate a SAM-model with TMB.
+* How to implement a SAM-model in TMB.
 * How to extract quantities used in stock assesment from SAM.
 
 
@@ -25,7 +24,7 @@ $\begin{align}
 \log N_{A,y} &= \sum_{a = A-1}^A (\log N_{a,y-1} - F_{a,y-1} - M_{a,y-1}) + \eta_{A,y},
 \end{align}$
 
-where $R(\cdot)$ is a function describing the spawning productivity of the cod, $A$ represents a maximum age, $F$ represents the fishing mortality and $M$ the natural mortality. It is assumed that $\eta_{a,y}$ is iid N(0,$\sigma_{\eta,a}^2$) distributed. Note that the variable $\eta_{a,y}$ for $a>1$ should be equal to zero if the model is perfect and there is zero migration. This is because no fish are born with age larger than one. The variable $\eta_{a,y}$ can be interpered as a model misspecification parameter, which accounts for variability in the stock caused by structures not included in the model. If the model is relatively correctly spessified, the shrinkage effect will cause $\sigma_{\eta,a}^2$ to be estimated close to zero. 
+where $R(\cdot)$ is a function describing the spawning productivity of the cod, $A$ represents a maximum age, $F$ represents the fishing mortality and $M$ the natural mortality. It is assumed that the process error, $\eta_{a,y}$, is iid N(0,$\sigma_{\eta,a}^2$) distributed. 
 
 <details> <summary> Details about fishing mortality and observation equations: </summary> 
 
@@ -100,6 +99,7 @@ include_source("sam.cpp", linesToInclud=c(29:999))
   DATA_IVECTOR(fbarRange);        //Age range of fbar
 ```
 </details>
+
 <details>
   <summary>Read parameters from R</summary>
 ```c++
