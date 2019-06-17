@@ -84,7 +84,7 @@ Type objective_function<Type>::operator()(){
     break; 
       
     default:
-      std::cout << "This fleet is not implemented yet. Imput must be 0 or 2." << std::endl; 
+      std::cout << "This fleet is not implemented yet. Input must be 0 or 2." << std::endl; 
       exit(EXIT_FAILURE);
     break; 
     }

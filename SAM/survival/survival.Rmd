@@ -20,7 +20,7 @@ from one year to the next, i.e. age-structured population dynamics. Denote by $N
 of fish aged $a$ alive in year $y$. For example, $N_{1, 8}$ is the number of fish of age 1 in year 8 (i.e $R_8$). The number of fish next year equals the number of fish this year minus those who have died and added those who have been born. This can be expressed mathematically as:
 
 \begin{align}
-\log N_{a,y} = \log N_{a-1,y-1} - F_{a-1,y-1} - M_{a-1, y-1} + \xi_{ay}, \quad \text{where } \xi_{ay} \sim  N(0, \sigma_S^2)
+\log N_{a,y} = \log N_{a-1,y-1} - F_{a-1,y-1} - M_{a-1, y-1} + \eta_{ay}, \quad \text{where } \eta_{ay} \sim  N(0, \sigma_S^2)
 \end{align}
 
 where $F$ is the fishing mortality and $M$ is the natural mortality. If our model contains a maximum age group $A$, then the survival for age $A$ is given by: 
@@ -243,10 +243,10 @@ return nll;
 The last latent process in SAM is the fishing mortality $F_{a,y}$ for age $a$ in year $y$. As with the survival process, we will model this as a random walk with observational error, but we will also have add a correlation structure in the year dimension. If we let $F_y = (F_{1,y}, \ldots, F_{A,y})$, we can formulate a model for $F_y$ as
 
 \[
-  \log F_y = \log F_{y-1} + \psi_y,
+  \log F_y = \log F_{y-1} + \xi_y,
 \]
 
-where $\psi$ follows an A (maximum age) -dimensional multivariate normal distribution with expectation 0 and covariance matrix $\Sigma$. There are many options for the structure of $\Sigma$, but we will focus on three alternatives: 
+where $\xi_y$ follows an A (maximum age) -dimensional multivariate normal distribution with expectation 0 and covariance matrix $\Sigma$. There are many options for the structure of $\Sigma$, but we will focus on three alternatives: 
 
 1. Age groups are independent: $\Sigma_{ij} = 0$ for year $i \ne j$.
 2. Same correlation between all age groups (compound symmetry): $\Sigma_{ij} = \rho \sqrt{\Sigma_{ii} \Sigma_{jj}}$.
@@ -390,64 +390,63 @@ Type objective_function<Type>::operator()(){
 2. 
 <details> 
   <summary> Compare the models with different correlation structure and find the best one based on AUC      </summary> 
-  
-```{r, eval=T, results='hide'}
-compile("Fobs.cpp")
-dyn.load(dynlib("Fobs"))
-
-
-load("Fobs.Rdata")
-
-# Calculate AIC for a given model
-TMBAIC <- function(opt){
-    k <- length(opt$par)
-    aic <- 2 * k + 2 * opt$objective
-    return(aic)
-  }
-
-
-# No correlation - Model 1 -----
-data <- list(Fobs = Fobs$Fobs,
-             cormode = 0)
-
-param <- list(logF = matrix(0, nrow = nrow(Fobs$Fobs), ncol = ncol(Fobs$Fobs)),
-              log_sigma_logF = rep(0, ncol(Fobs$Fobs)),
-              trans_rho = if(data$cormode == 0){numeric(0)} else{0.1},
-              log_sigma_Fobs = 0)
-
-obj_mod0 <- MakeADFun(data, param, random = "logF", DLL = "Fobs")
-opt_mod0 <- nlminb(obj_mod0$par, obj_mod0$fn, obj_mod0$gr)
-
-
-# Compund symmetry - Model 2 ------
-data <- list(Fobs = Fobs$Fobs,
-             cormode = 1)
-
-param <- list(logF = matrix(0, nrow = nrow(Fobs$Fobs), ncol = ncol(Fobs$Fobs)),
-              log_sigma_logF = rep(0, ncol(Fobs$Fobs)),
-              trans_rho = if(data$cormode == 0){numeric(0)} else{0.1},
-              log_sigma_Fobs = 0)
-
-obj_mod1 <- MakeADFun(data, param, random = "logF", DLL = "Fobs")
-opt_mod1 <- nlminb(obj_mod1$par, obj_mod1$fn, obj_mod1$gr)
-
-
-# AR(1) - Model 3 ------
-data <- list(Fobs = Fobs$Fobs,
-             cormode = 2)
-
-param <- list(logF = matrix(0, nrow = nrow(Fobs$Fobs), ncol = ncol(Fobs$Fobs)),
-              log_sigma_logF = rep(0, ncol(Fobs$Fobs)),
-              trans_rho = if(data$cormode == 0){numeric(0)} else{0.1},
-              log_sigma_Fobs = 0)
-
-obj_mod2 <- MakeADFun(data, param, random = "logF", DLL = "Fobs")
-opt_mod2 <- nlminb(obj_mod2$par, obj_mod2$fn, obj_mod2$gr)
-
-# Calculate AIC for all models
-TMBAIC(opt_mod0)
-TMBAIC(opt_mod1)
-TMBAIC(opt_mod2)
-
-```
+    ```{r, eval=T, results='hide'}
+    compile("Fobs.cpp")
+    dyn.load(dynlib("Fobs"))
+    
+    
+    load("Fobs.Rdata")
+    
+    # Calculate AIC for a given model
+    TMBAIC <- function(opt){
+        k <- length(opt$par)
+        aic <- 2 * k + 2 * opt$objective
+        return(aic)
+      }
+    
+    
+    # No correlation - Model 1 -----
+    data <- list(Fobs = Fobs$Fobs,
+                 cormode = 0)
+    
+    param <- list(logF = matrix(0, nrow = nrow(Fobs$Fobs), ncol = ncol(Fobs$Fobs)),
+                  log_sigma_logF = rep(0, ncol(Fobs$Fobs)),
+                  trans_rho = if(data$cormode == 0){numeric(0)} else{0.1},
+                  log_sigma_Fobs = 0)
+    
+    obj_mod0 <- MakeADFun(data, param, random = "logF", DLL = "Fobs")
+    opt_mod0 <- nlminb(obj_mod0$par, obj_mod0$fn, obj_mod0$gr)
+    
+    
+    # Compund symmetry - Model 2 ------
+    data <- list(Fobs = Fobs$Fobs,
+                 cormode = 1)
+    
+    param <- list(logF = matrix(0, nrow = nrow(Fobs$Fobs), ncol = ncol(Fobs$Fobs)),
+                  log_sigma_logF = rep(0, ncol(Fobs$Fobs)),
+                  trans_rho = if(data$cormode == 0){numeric(0)} else{0.1},
+                  log_sigma_Fobs = 0)
+    
+    obj_mod1 <- MakeADFun(data, param, random = "logF", DLL = "Fobs")
+    opt_mod1 <- nlminb(obj_mod1$par, obj_mod1$fn, obj_mod1$gr)
+    
+    
+    # AR(1) - Model 3 ------
+    data <- list(Fobs = Fobs$Fobs,
+                 cormode = 2)
+    
+    param <- list(logF = matrix(0, nrow = nrow(Fobs$Fobs), ncol = ncol(Fobs$Fobs)),
+                  log_sigma_logF = rep(0, ncol(Fobs$Fobs)),
+                  trans_rho = if(data$cormode == 0){numeric(0)} else{0.1},
+                  log_sigma_Fobs = 0)
+    
+    obj_mod2 <- MakeADFun(data, param, random = "logF", DLL = "Fobs")
+    opt_mod2 <- nlminb(obj_mod2$par, obj_mod2$fn, obj_mod2$gr)
+    
+    # Calculate AIC for all models
+    TMBAIC(opt_mod0)
+    TMBAIC(opt_mod1)
+    TMBAIC(opt_mod2)
+    
+    ```
 </details> 

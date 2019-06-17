@@ -1,6 +1,6 @@
 library(TMB)
 load("Nobs.RData")
-matplot(log(Nobs$Nobs), main="logN")
+matplot(log(Nobs$Nobs), main="logN", ylab = "log(Nobs)", xlab = "year")
 
 compile("survival.cpp")
 dyn.load(dynlib("survival"))
