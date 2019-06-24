@@ -98,8 +98,8 @@ where
 and surveys).
 * In addition the data list contains a matrix ```aux``` with three columns ```(year, fleet, age)```.
 The $i$th row in this matrix contains the information for the $i$th element in the Cobs vector.
-* Data also contain a vector ```fleetTypes``` with three elements. ‘0’ indicates a catch fleet
-and ‘2’ indicates a survey fleet.
+* Data also contain a vector ```fleetTypes``` with three elements. ''0'' indicates a catch fleet
+and ''2'' indicates a survey fleet.
 * Finally the data contains a vector `sampleTimes` with three elements, which is the $day^{(s)}/365$
 values (only used for the survey fleets).
 

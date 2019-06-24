@@ -27,7 +27,7 @@ where $F$ is the fishing mortality and $M$ is the natural mortality. If our mode
 
 \begin{equation}
   \label{eq:survival}
-  \log N_{a,y} = \log N_{A-1,y-1} - F_{A-1,y-1} - M_{A-1, y-1} - \log N_{A,y-1} - F_{A,y-1} - M_{A, y-1}, 
+  \log N_{A,y} = \log N_{A-1,y-1} - F_{A-1,y-1} - M_{A-1, y-1} + \log N_{A,y-1} - F_{A,y-1} - M_{A, y-1} + \epsilon_{Ay}, 
 \end{equation}
 where the contribution is the survival form last year in the age group below, but also from the same age group from last year, since this is the maximum age. 
 
@@ -35,11 +35,12 @@ where the contribution is the survival form last year in the age group below, bu
 
 ### Survival as state space model 
 
-As we did with the recruitment process, we will model the recruitment as a state space model in the following way: 
+As we did with the recruitment process, we will model the survival as a state space model in the following way: 
 
-\[
-  \log N_{ay}^{(\text{obs})} = \log N_{a,y} +  \eta_{ay}, \quad \text{where } \eta_{ay} \sim N(0, \sigma^2).
-\]
+\begin{align}
+  \log N_{ay}^{(\text{obs})} &= \log N_{a,y} + \epsilon_{ay}, \quad \text{where }\epsilon_{ay} \sim N(0, \sigma^2) \\
+  \log N_{a,y} &= \log N_{a-1,y-1} - F_{a-1,y-1} - M_{a-1,y-1} + \eta_{ay}\\
+ \log N_{A,y} &= \log N_{A-1,y-1} - F_{A-1,y-1} - M_{A-1, y-1} + \log N_{A,y-1} - F_{A,y-1} - M_{A, y-1} + \eta{Ay}\end{align}
 
 
 ***
@@ -240,10 +241,10 @@ return nll;
 
 ## Fishing mortality 
 
-The last latent process in SAM is the fishing mortality $F_{a,y}$ for age $a$ in year $y$. As with the survival process, we will model this as a random walk with observational error, but we will also have add a correlation structure in the year dimension. If we let $F_y = (F_{1,y}, \ldots, F_{A,y})$, we can formulate a model for $F_y$ as
+The last latent process in SAM is the fishing mortality $F_{a,y}$ for age $a$ in year $y$. As with the survival process, we will model this as a random walk with observational error, but we will also have add a correlation structure in the year dimension. If we let ${\bf F}_y = (F_{1,y}, \ldots, F_{A,y})$, we can formulate a model for $F_y$ as
 
 \[
-  \log F_y = \log F_{y-1} + \xi_y,
+  \log {\bf F}_y = \log {\bf F}_{y-1} + \pmb{\xi_y},
 \]
 
 where $\xi_y$ follows an A (maximum age) -dimensional multivariate normal distribution with expectation 0 and covariance matrix $\Sigma$. There are many options for the structure of $\Sigma$, but we will focus on three alternatives: 
