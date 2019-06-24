@@ -1,0 +1,523 @@
+---
+title: "Recruitment"
+author: "Hans Skaug, Jens Wahl, Olav Breivik"
+date: "27 mai 2019"
+output: 
+  html_document
+---
+
+
+```{r, echo=FALSE, eval=TRUE, results='hide',include=FALSE}
+library(TMB)
+```
+
+## **Recruitment**
+In this example you learn: 
+
+* The recruitment process of SAM.
+* How to implement the recruitment process in TMB.
+* Extract quantities from the model in R.
+
+***
+#### Recruitment as a random walk
+
+In the SAM model we model the recruitment process ($R_y$) as an unobserved (latent) process, but we will in this example assume that we observe this process. The simplest way to model recruitment is as a random walk: 
+
+\[
+  \log R_y = \log R_{y-1} + \epsilon_y, 
+\]
+
+where $\epsilon_t \sim N(0, \sigma_R^2)$ and iid, and $R_y$ is the observed recruitment in year $y$, for $y = 1, \ldots, T$. If we assume no measurement error, the only parameter to be estimated is the standard deviation of $\sigma_R$. 
+
+***
+#### Full code for example
+<details>
+  <summary> R code </summary>
+```{r, echo = TRUE, warning=F}
+# Load data
+load("Robs.RData")
+
+# Compile TMB code for for random walk
+compile("recruitment.cpp")
+dyn.load(dynlib("recruitment"))
+
+# Prepare for TMB
+param <- list(log_sigma_r = -0.5)
+data <- list(Robs = Robs$Robs)
+
+
+# Make objective function
+obj <- MakeADFun(data, param, DLL = "recruitment")
+opt <- nlminb(obj$par, obj$fn, obj$gr, control = list(trace = FALSE))
+
+# Get standard deviations
+rep <- sdreport(obj)
+summary(rep)
+
+```
+</details>
+
+<details> 
+  <summary> C++ code </summary>
+```c++
+#include <TMB.hpp>
+
+template<class Type> 
+Type objective_function<Type>::operator()(){
+  
+  // Data 
+  DATA_VECTOR(Robs);
+  
+  // Parameter
+  PARAMETER(log_sigma_r);
+
+  Type sigma_r = exp(log_sigma_r);
+  ADREPORT(sigma_r); // Report standard deviation of sigma_r back to R
+  
+  Type nll = 0; // negative log likelihood
+  vector<Type> log_Robs = log(Robs); // log of recruitment
+  
+  // Se exercise 1 below for negative log-likelihood
+  
+  return(nll); 
+}
+```
+</details> 
+
+***
+
+#### C++ code step-by-step 
+
+<details> 
+  <summary> Load TMB library </summary> 
+```c++
+#include <TMB.hpp>
+
+template<class Type> 
+Type objective_function<Type>::operator()(){
+
+```
+</details> 
+
+<details> 
+  <summary> Read data and parameters from R </summary> 
+```c++
+// Data 
+DATA_VECTOR(Robs);
+
+// Parameter
+PARAMETER(log_sigma_r);
+``` 
+</details>   
+
+<details> 
+  <summary> Transform parameter </summary> 
+```c+++
+  Type sigma_r = exp(log_sigma_r);
+  ADREPORT(sigma_r); // Report standard deviation of sigma_r back to R
+```
+</details> 
+  
+  
+<details> 
+  <summary> Likelihood contribution from observations </summary> 
+  See exercise 1.2
+</details> 
+
+***
+#### Exercice 1
+
+1.
+<details>
+  <summary> Write down the negative log likelihood of the recruitment process described above.</summary>
+  Since all $\epsilon_t$ are independent and $R_y$ only is dependent on $R_{y-1}$ the likelihood can be written as 
+  \begin{align}
+    L(\sigma_R) = \prod_{y = 2}^T N(R_{y-1}, \sigma_R^2).
+  \end{align}
+  The negative log likelihood is therefore given by 
+  \begin{align}
+    - \log L(\sigma_R) = - \sum_{y = 2}^T \log N(R_{y-1}, \sigma_R^2).
+  \end{align}
+</details>
+
+2. 
+<details> 
+  <summary> Implement the likelihood from 1. </summary> 
+  
+    ```c++ 
+      for(int i = 1; i < Robs.size(); i++){
+        nll -= dnorm(log_Robs(i), log_Robs(i - 1), sigma_r, true);
+      }
+
+    ```
+  
+</details> 
+
+### Recruitment as a state space model 
+
+Assume that we don't observe the recruitment process directly and that measurement error is introduced. We assume that the measurment error $\eta_y \sim N(0, \sigma_{R^\text{obs}}^2)$ and iid. The model can then be expressed as:
+
+\begin{align}
+  \log R_y^{(\text{obs})} &= R_y + \eta_y, \\
+  \log R_y &= \log R_{y-1} + \epsilon_y. 
+\end{align}
+
+The "true" process, $R_y$, is now unobserved and need to be integrated out. 
+
+#### Full code for example
+<details> 
+  <summary> R code </summary> 
+```{r non.finished.plotting, echo=TRUE, comment = "", message=FALSE, results = "hide", warning=FALSE}
+# Compile TMB code for random walk state space model
+compile("recruitment_state_space.cpp")
+dyn.load(dynlib("recruitment_state_space"))
+
+param <- list(logR = rep(0, length(Robs$Robs)),
+              log_sigma_Robs = -0.5,
+              log_sigma_logR = -0.5)
+
+data <- list(Robs = Robs$Robs)
+
+obj <- MakeADFun(data, param, random = "logR", DLL = "recruitment_state_space")
+opt <- nlminb(obj$par, obj$fn, obj$gr)
+
+# Get standard deviation of parameters and latent process
+rep <- sdreport(obj)
+
+# Get summary of fixed effects 
+summary(rep, "fixed", p.value = T)
+logR_rep <- summary(rep, "random")
+
+
+# Plot estimated recruitment process
+{plot(Robs$year, log(Robs$Robs), ylab = "Recruitment", xlab = "year")
+lines(Robs$year, logR_rep[, 1], col="black")
+lines(Robs$year, logR_rep[, 1] - 2 * logR_rep[, 2], col="black", lty="dashed")
+lines(Robs$year, logR_rep[, 1] + 2 * logR_rep[, 2], col="black", lty="dashed")}
+```
+
+</details>
+
+<details> 
+  <summary> C++ code </summary>
+```c++
+#include <TMB.hpp>
+
+template<class Type> 
+Type objective_function<Type>::operator()(){
+  
+  DATA_VECTOR(Robs); 
+  
+  PARAMETER_VECTOR(logR); // Latent process 
+  PARAMETER(log_sigma_Robs); 
+  PARAMETER(log_sigma_logR); 
+  
+ // Transform data
+ vector<Type> log_Robs = log(Robs);
+  
+ // Transform standard deviations
+ Type sigma_Robs = exp(log_sigma_Robs); 
+ Type sigma_logR = exp(log_sigma_logR);
+ 
+ ADREPORT(sigma_Robs); 
+ ADREPORT(sigma_logR); 
+ 
+ // Negative log likelihood
+ Type nll = 0; 
+ // Number of observations 
+ Type n = Robs.size(); 
+ 
+ // Contribution to likelihood from latent process logR
+ for(int i = 1; i < n; i++){
+   nll -= dnorm(logR(i), logR(i - 1), sigma_logR, true);
+ }
+ 
+ // Contribution to likelihood from observations Robs
+  
+ // See exercise 2.2 below
+ 
+ return(nll);
+  
+}
+```
+    
+</details> 
+
+
+
+#### C++ code step-by-step 
+
+<details> 
+  <summary> Load TMB library </summary> 
+```c++
+  #include <TMB.hpp>
+  
+  template<class Type> 
+  Type objective_function<Type>::operator()(){
+
+```
+</details> 
+
+<details> 
+  <summary> Read data and parameters from R </summary> 
+```c++
+  DATA_VECTOR(Robs); 
+  
+  PARAMETER_VECTOR(logR); // Latent process 
+  PARAMETER(log_sigma_Robs); 
+  PARAMETER(log_sigma_logR); 
+  
+  // Transform data
+  vector<Type> log_Robs = log(Robs);
+``` 
+</details>   
+
+<details> 
+  <summary> Transform parameters </summary> 
+```c+++
+ // Transform standard deviations
+ Type sigma_Robs = exp(log_sigma_Robs); 
+ Type sigma_logR = exp(log_sigma_logR);
+ 
+ ADREPORT(sigma_Robs); 
+ ADREPORT(sigma_logR); 
+```
+</details> 
+  
+  
+<details> 
+  <summary> Likelihood contribution from latent process and observations</summary> 
+```c++
+ // Contribution to likelihood from latent process logR
+ for(int i = 1; i < n; i++){
+   nll -= dnorm(logR(i), logR(i - 1), sigma_logR, true);
+ }
+ 
+ // Contribution to likelihood from observations Robs
+  
+ // See exercise 2.2 below
+ 
+ return(nll);
+  
+}
+```
+</details> 
+
+
+***
+#### Exercise 2
+
+1. 
+<details> 
+  <summary> Write down the joint negative log likelihood of the recruitment state-space model </summary> 
+  Let $R^{\text(obs)} = (R_1^\text{obs}, \ldots, R_T^\text{obs})$ and $R = (R_1, \ldots, R_T)$. The joint distribution of        $(R^\text{obs}, R)$ can be written as 
+  \begin{align}
+    L(\theta) &= \int f(R^\text{obs}, R) dR = \int f_{R^\text{obs}}(R^\text{obs} | R) f_R(R) dR \\
+    &= \int f_{R_1^\text{obs}}(R_1^\text{obs} | R_1) f_{R_1}(R_1) \prod_{y=2}^T f_{R_y^\text{obs}}(R_y^\text{obs} | R_y) f_{R_y}(R_y) dR,
+  \end{align}
+  where $f_{R_y^\text{obs}}$ is the conditional density of $\log R_y^\text{obs}$ given $R_y$ and $f_{R_y}$ is the density of the latent recruitment $R_y$.
+  The negative log likelihood we need to implement in TMB is therefore 
+  \[
+    - \log L(\theta) = -N(R_1,\sigma_{R^\text{obs}}^2) - \sum_{y=2}^T N(R_y,\sigma_{R^\text{obs}}^2) - \sum_{y=2}^T \log             N(R_{y-1}, \sigma_R^2),
+  \]
+  where the two first terms are the contribution from the observations, while the last sum is the likelihood contribution from   the unobserved process. 
+  
+</details> 
+
+2. 
+<details> 
+  <summary> Implement the likelihood for the observation equation. </summary>
+    ```c++
+       // Contribution to likelihood from observations Robs
+       for(int i = 0; i < n; i++){
+         nll -= dnorm(log_Robs(i), logR(i), sigma_Robs, true);
+       }
+    ```
+</details> 
+
+3. 
+<details> 
+  <summary> Plot the estimated recruitment process with 2 times standard error </summary> 
+    ```r
+    plot(Robs$year, log(Robs$Robs), ylab = "Recruitment", xlab = "year")
+    lines(Robs$year, logR_rep[, 1], col="black")
+    lines(Robs$year, logR_rep[, 1] - 2 * logR_rep[, 2], col="black", lty="dashed")
+    lines(Robs$year, logR_rep[, 1] + 2 * logR_rep[, 2], col="black", lty="dashed")
+    ```
+</details> 
+
+
+
+***
+### Using spawning stock biomass (SSB) to predict recruitment.
+
+Instead of letting the recruitment be a function of the recruitment from the year before, we can use the spawning stock biomass from last year to predict the recruitment. 
+We will look at two recruitment functions: 
+
+* Richer: $f(SSB) = \alpha\cdot SSB \cdot e^{-\beta\cdot SSB}$
+* Beverton-Holt: $f(SSB) = \frac{\alpha\cdot SSB}{1 + \beta\cdot SSB}$
+
+We can then setup our recruitment process like: 
+
+\[
+  \log R_y = \log f(SSB_{y - 1}) + \epsilon_y, \quad \text{where } \epsilon \sim N(0, \sigma_R^2)
+\]
+
+
+
+*** 
+#### Full code for example (Ricker)
+
+<details> 
+  <summary> R code </summary> 
+```{r, echo=-1, comment = "", message=FALSE, results = "hide", warning=FALSE}
+
+# Richer 
+
+compile("recruitment_state_space_SSB.cpp")
+dyn.load(dynlib("recruitment_state_space_SSB"))
+
+data <- list(Robs = Robs$Robs,
+             SSB = Robs$ssb,
+             method = 1)
+
+param <- list(logR = rep(0, length(Robs$Robs)),
+              log_sigma_Robs = 0,
+              log_sigma_logR = 0, 
+              ricker = if(data$method == 1){numeric(2)} else{numeric(0)},
+              bh = if(data$method == 2){numeric(2)} else{numeric(0)})
+
+
+
+obj <- MakeADFun(data, param, random = "logR", DLL = "recruitment_state_space_SSB")
+opt <- nlminb(obj$par, obj$fn, obj$gr)
+rep <- sdreport(obj)
+logR_r_rep <- summary(rep, "random")
+
+
+# Beverton-Holt
+
+
+data <- list(Robs = Robs$Robs,
+             SSB = Robs$ssb,
+             method = 2)
+
+param <- list(logR = rep(0, length(Robs$Robs)),
+              log_sigma_Robs = 0,
+              log_sigma_logR = 0, 
+              ricker = if(data$method == 1){numeric(2)} else{numeric(0)},
+              bh = if(data$method == 2){numeric(2)} else{numeric(0)})
+
+
+
+obj <- MakeADFun(data, param, random = "logR", DLL = "recruitment_state_space_SSB")
+opt <- nlminb(obj$par, obj$fn, obj$gr)
+rep <- sdreport(obj)
+logR_bh_rep <- summary(rep, "random")
+
+
+
+
+
+# Plot all estimated recruitment processes
+{plot(Robs$year, log(Robs$Robs), ylab = "Recruitment", xlab = "year")
+lines(Robs$year, logR_rep[, 1], col="black")
+lines(Robs$year, logR_rep[, 1] - 2 * logR_rep[, 2], col="black", lty="dashed")
+lines(Robs$year, logR_rep[, 1] + 2 * logR_rep[, 2], col="black", lty="dashed")
+lines(Robs$year, logR_r_rep[, 1], col = "red")
+lines(Robs$year, logR_bh_rep[, 1], col = "blue")
+legend("bottomright", c("Random walk", "Ricker", "Berverton-Hold"), lty = 1, col = c("black", "red", "blue"))}
+
+
+```
+
+</details>
+
+<details> 
+  <summary> C++ code </summary>
+```c++
+#include <TMB.hpp>
+
+template<class Type> 
+Type objective_function<Type>::operator()(){
+  
+  DATA_VECTOR(Robs);
+  DATA_VECTOR(SSB);
+  DATA_INTEGER(method);
+  
+  PARAMETER_VECTOR(logR); // Latent process 
+  PARAMETER(log_sigma_Robs); 
+  PARAMETER(log_sigma_logR); 
+  PARAMETER_VECTOR(ricker); 
+  PARAMETER_VECTOR(bh); 
+  
+  // Transform data
+  vector<Type> log_Robs = log(Robs);
+  
+ // Transform standard deviations
+ Type sigma_Robs = exp(log_sigma_Robs); 
+ Type sigma_logR = exp(log_sigma_logR);
+ 
+ ADREPORT(sigma_Robs); 
+ ADREPORT(sigma_logR); 
+ 
+ // Negative log likelihood
+ Type nll = 0; 
+ // Number of observations 
+ Type n = Robs.size(); 
+ Type pred = 0; 
+ // Contribution to likelihood from latent process logR
+ for(int i = 1; i < n; i++){
+   
+   switch(method){
+   case 0:
+     pred = logR(i - 1);
+     break;
+     
+   case 1:
+     pred = ricker(0) + log(SSB(i - 1)) - exp(ricker(1)) * SSB(i - 1);
+     break;
+
+   case 2:
+     // See exercice below
+     break;
+
+   default:
+     std::cout << "This method is not implementet. Method has to be a number 0, 1, 2" << std::endl;
+   break;
+   }
+   
+   nll -= dnorm(logR(i), pred, sigma_logR, true);
+
+ }
+ 
+ // Contribution to likelihood from observations Robs
+ for(int i = 0; i < n; i++){
+   nll -= dnorm(log_Robs(i), logR(i), sigma_Robs, true);
+ }
+ 
+ return(nll);
+  
+}
+```
+    
+</details> 
+
+***
+### Exercise 3
+
+1. 
+<details> 
+  <summary> Implement the Beverton-Holt model in the TMB program (note that the parameters are on log scale) 
+  </summary> 
+
+    ```c++
+        case 2:
+         pred = bh(0) + log(SSB(i - 1)) - log(Type(1.0) + exp(bh(1)) * SSB(i - 1));
+         break;
+    ``` 
+</details> 
+
+
+  
+  

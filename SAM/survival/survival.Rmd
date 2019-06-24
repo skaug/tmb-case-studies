@@ -1,0 +1,453 @@
+---
+title: "Survival"
+author: "Hans Skaug, Jens Wahl, Olav Breivik"
+date: "6 juni 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(TMB)
+source("../../utils.R")
+
+```
+
+## **Survival**
+
+In the first example we looked at the recruitment process, where we modeled the number of fish
+born ($R_y$) in year $y$. The next step is to look at survival of individulas aged $a$ 
+from one year to the next, i.e. age-structured population dynamics. Denote by $N_{a,y}$ the number
+of fish aged $a$ alive in year $y$. For example, $N_{1, 8}$ is the number of fish of age 1 in year 8 (i.e $R_8$). The number of fish next year equals the number of fish this year minus those who have died and added those who have been born. This can be expressed mathematically as:
+
+\begin{align}
+\log N_{a,y} = \log N_{a-1,y-1} - F_{a-1,y-1} - M_{a-1, y-1} +  \epsilon_{ay}, \quad \text{where }  \epsilon_{ay} \sim  N(0, \sigma_S^2)
+\end{align}
+
+where $F$ is the fishing mortality and $M$ is the natural mortality. If our model contains a maximum age group $A$, then the survival for age $A$ is given by: 
+
+\begin{equation}
+  \label{eq:survival}
+  \log N_{A,y} = \log N_{A-1,y-1} - F_{A-1,y-1} - M_{A-1, y-1} + \log N_{A,y-1} - F_{A,y-1} - M_{A, y-1} + \epsilon_{Ay}, 
+\end{equation}
+where the contribution is the survival form last year in the age group below, but also from the same age group from last year, since this is the maximum age. 
+
+*** 
+
+### Survival as state space model 
+
+As we did with the recruitment process, we will model the survival as a state space model in the following way: 
+
+\begin{align}
+  \log N_{ay}^{(\text{obs})} &= \log N_{a,y} + \epsilon_{ay}, \quad \text{where }\epsilon_{ay} \sim N(0, \sigma^2) \\
+  \log N_{a,y} &= \log N_{a-1,y-1} - F_{a-1,y-1} - M_{a-1,y-1} + \eta_{ay}\\
+ \log N_{A,y} &= \log N_{A-1,y-1} - F_{A-1,y-1} - M_{A-1, y-1} + \log N_{A,y-1} - F_{A,y-1} - M_{A, y-1} + \eta_{Ay}\end{align}
+
+
+***
+
+### Full code for example 
+
+<details> 
+  <summary> R code </summary> 
+```{r, echo = TRUE, warning=F, results='hide'}
+load("Nobs.RData")
+matplot(log(Nobs$Nobs), main="logN")
+
+compile("survival.cpp")
+dyn.load(dynlib("survival"))
+
+# Prepare for TMB
+param <- list(logN = matrix(0 ,nrow = nrow(Nobs$Nobs), ncol = ncol(Nobs$Nobs)),
+              log_sigma_Nobs = 0, 
+              log_sigma_logN = 0,
+              log_sigma_logR = 0)
+
+data <- list(Nobs = Nobs$Nobs,
+             F = Nobs$F,
+             M = Nobs$M)
+
+obj <- MakeADFun(data, param, random = "logN", DLL = "survival")
+opt <- nlminb(obj$par, obj$fn, obj$gr, control = list(trace = 0))
+
+rep <- sdreport(obj)
+
+logN_rep <- summary(rep, "random")
+
+# Add lines for estimated survival for all age groups
+matplot(as.list(rep ,"Est")$logN, type="l", add=TRUE)
+
+```
+  
+</details> 
+
+<details> 
+  <summary> C++ code </summary> 
+```c++
+#include <TMB.hpp>
+
+template<class Type> 
+Type objective_function<Type>::operator()(){
+  
+  DATA_MATRIX(Nobs); 
+  DATA_MATRIX(M); 
+  DATA_MATRIX(F); 
+  
+  PARAMETER_MATRIX(logN); // Survival matrix for all age groups and years 
+  PARAMETER(log_sigma_Nobs); // standard deviation for observations 
+  PARAMETER(log_sigma_logN); // standard devitation for state equation
+  PARAMETER(log_sigma_logR); // stadard deviation for recruitment 
+  
+  // Transform parameters
+  Type sigma_Nobs = exp(log_sigma_Nobs); 
+  Type sigma_logN = exp(log_sigma_logN); 
+  Type sigma_logR = exp(log_sigma_logR);
+  
+  // Report to R
+  ADREPORT(sigma_logN);
+  ADREPORT(sigma_Nobs);
+  ADREPORT(sigma_logR);
+  
+
+  
+  Type nll = 0; 
+  int n_year = Nobs.rows();
+  int n_age = Nobs.cols(); 
+  
+  // Recruitment for age zero
+  for(int y = 1; y < n_year; y++){
+    nll -= dnorm(logN(y, 0), logN(y - 1, 0), sigma_logR, true);
+  }
+  
+  // survival for age greater than zero
+  
+  // Contribution form latent process
+  for(int y = 1; y < n_year; y++){
+    for(int a = 1; a < n_age; a++){
+      
+      // If we are at max age we get contribution from same group last year
+      if(a == n_age - Type(1)){
+        Type pred = log(exp(logN(y - 1, a - 1) - F(y - 1, a - 1) - M(y - 1, a - 1))) +
+                     log(exp(logN(y - 1, a) - F(y - 1, a) - M(y - 1, a)));
+        nll -= dnorm(logN(y, a), pred, sigma_logN, true);
+      } else{
+       // see exercise below
+      }
+    }
+  }
+  
+  // Contribution from observations given latent process
+  
+  for(int y = 0; y < n_year; y++){
+    for(int a = 0; a < n_age; a++){
+     nll -= dnorm(log(Nobs(y, a)), logN(y, a), sigma_Nobs, true);
+    }
+  }
+  
+  return nll;
+  
+}
+``` 
+
+*** 
+
+### C++ code step-by-step 
+<details> 
+  <summary> Read data and parameters from R </summary>
+```c++
+PARAMETER_MATRIX(logN); // Survival matrix for all age groups and years 
+PARAMETER(log_sigma_Nobs); // standard deviation for observations 
+PARAMETER(log_sigma_logN); // standard devitation for state equation
+PARAMETER(log_sigma_logR); // stadard deviation for recruitment 
+
+// Transform parameters
+Type sigma_Nobs = exp(log_sigma_Nobs); 
+Type sigma_logN = exp(log_sigma_logN); 
+Type sigma_logR = exp(log_sigma_logR);
+
+// Report to R
+ADREPORT(sigma_logN);
+ADREPORT(sigma_Nobs);
+ADREPORT(sigma_logR);
+```
+</details> 
+
+<details> 
+  <summary> Contribution from $N_{1,y}$ </summary>
+```c++
+Type nll = 0; 
+int n_year = Nobs.rows();
+int n_age = Nobs.cols(); 
+
+// Recruitment for age zero
+for(int y = 1; y < n_year; y++){
+  nll -= dnorm(logN(y, 0), logN(y - 1, 0), sigma_logR, true);
+}
+``` 
+</details> 
+
+<details> 
+  <summary> Contribution from $N_{a,y}$ for $a > 1$ </summary> 
+```c++
+// survival for age greater than zero
+
+// Contribution form latent process
+for(int y = 1; y < n_year; y++){
+  for(int a = 1; a < n_age; a++){
+    
+    // If we are at max age we get contribution from same group last year
+    if(a == n_age - Type(1)){
+      Type pred = log(exp(logN(y - 1, a - 1) - F(y - 1, a - 1) - M(y - 1, a - 1))) +
+                   log(exp(logN(y - 1, a) - F(y - 1, a) - M(y - 1, a)));
+      nll -= dnorm(logN(y, a), pred, sigma_logN, true);
+    } else{
+      // see exercise below 
+    }
+  }
+}
+```
+</details> 
+
+<details> 
+  <summary> Contribution form observations $N_{a,y}^{\text{obs}}$ </summary> 
+```c++
+// Contribution from observations given latent process
+
+for(int y = 0; y < n_year; y++){
+  for(int a = 0; a < n_age; a++){
+   nll -= dnorm(log(Nobs(y, a)), logN(y, a), sigma_Nobs, true);
+  }
+}
+
+return nll;
+
+}
+
+```
+
+*** 
+
+### Exercise 1
+
+1. 
+<details> 
+  <summary> Implement the contribution from $N_{a,y}$ for $1 < a < A$. </summary> 
+    ```c++
+        nll -= dnorm(logN(y ,a), logN(y - 1, a - 1) - F(y - 1, a - 1) - M(y - 1, a - 1), sigma_logN, true);
+    ```
+</details> 
+
+
+*** 
+
+## Fishing mortality 
+
+The last latent process in SAM is the fishing mortality $F_{a,y}$ for age $a$ in year $y$. As with the survival process, we will model this as a random walk with observational error, but we will also have add a correlation structure in the year dimension. If we let ${\bf F}_y = (F_{1,y}, \ldots, F_{A,y})$, we can formulate a model for $F_y$ as
+
+\[
+  \log {\bf F}_y = \log {\bf F}_{y-1} + \pmb{\xi_y},
+\]
+
+where $\xi_y$ follows an A (maximum age) -dimensional multivariate normal distribution with expectation 0 and covariance matrix $\Sigma$. There are many options for the structure of $\Sigma$, but we will focus on three alternatives: 
+
+1. Age groups are independent: $\Sigma_{ij} = 0$ for year $i \ne j$.
+2. Same correlation between all age groups (compound symmetry): $\Sigma_{ij} = \rho \sqrt{\Sigma_{ii} \Sigma_{jj}}$.
+3. AR(1) structure with exponentially decaying correlations: $\Sigma_{ij} = \rho^{|i-j|}\sqrt{\Sigma_{ii} \Sigma_{jj}}.$
+
+As with the survival $N_{a,y}$, we observe 
+\[
+  \log F_{a,y}^\text{obs} = \log F_{a,y} + \eta_{ay}, \quad \eta_{ay} \sim N(0, \sigma_{F^\text{obs}}^2)
+\]
+
+
+*** 
+
+### Full code for example 
+<details> 
+  <summary> R code </summary> 
+```{r,echo=FALSE, comment=""}
+include_source("Fobs.R", linesToInclud=c(1:999))
+```
+</details>
+
+<details> 
+  <summary> C++ code </summary> 
+```c++
+#include<TMB.hpp>
+
+// Helper function to ensure valid correlation 
+template<class Type> 
+Type trans(Type trans_rho){
+  Type rho = (exp(trans_rho) - Type(1)) / (exp(trans_rho) + Type(1));
+  return rho;
+}
+
+template<class Type> 
+Type objective_function<Type>::operator()(){
+  
+  DATA_MATRIX(Fobs);
+  DATA_INTEGER(cormode); // Correlation structure
+  
+  PARAMETER_MATRIX(logF); // Fishing mortalitu for all ages and years 
+  PARAMETER_VECTOR(log_sigma_logF); // SD for all ages
+  PARAMETER_VECTOR(trans_rho); // Correlation
+  PARAMETER(log_sigma_Fobs); // SD for observations 
+  
+  
+  // Number of years and age groups
+  int n_year = Fobs.rows();
+  int n_age = Fobs.cols();
+  
+  // Transform parameters 
+  Type sigma_Fobs = exp(log_sigma_Fobs); 
+  vector<Type> sigma_logF = exp(log_sigma_logF); 
+  Type rho = 0;
+  
+
+  // Report standard deviation of parameters
+  ADREPORT(sigma_Fobs);
+  ADREPORT(sigma_logF);
+
+  
+  // Covariance matrix for age groups 
+  matrix<Type> Sigma(n_age, n_age);
+  Sigma.setZero();
+  
+  // Negative log likelihood
+  Type nll = 0; 
+  
+  
+  switch(cormode){
+  
+    // Independent
+    case 0:
+      Sigma.diagonal() = sigma_logF * sigma_logF;
+    break;
+      
+    // Compound symmertry
+    case 1:
+      Sigma.diagonal() = sigma_logF * sigma_logF;
+      rho = trans(trans_rho(0)); 
+      for(int i = 0; i < n_age; i++){
+        for(int j = 0; j < i; j++){
+          Sigma(i, j) = rho * sigma_logF(i) * sigma_logF(j);
+          Sigma(j, i) = Sigma(i, j);
+        }
+      }
+    break;
+      
+    // AR(1) 
+    case 2: 
+      // See exercise below
+    break;
+      
+    default:
+      std::cout<<"Error: This cormode not implemented yet."<<std::endl;
+      exit(EXIT_FAILURE);
+    break;
+  }
+  
+  // Contribution from latent process
+  
+  // Make zero mean multivariate object with covariance Sigma
+  density::MVNORM_t<Type> negative_mvn(Sigma);
+  ADREPORT(Sigma);
+  
+  
+  for(int y = 1; y < n_year; y++){
+    nll += negative_mvn(logF.row(y) - logF.row(y - 1)); // Returns negative log likelihood  
+  }
+  
+  // Contribution from observations
+  for(int y = 0; y < n_year; y++){
+    for(int a = 0; a < n_age; a++){
+      nll -= dnorm(log(Fobs(y, a)), logF(y, a), sigma_Fobs, true);
+    }
+  }
+  
+  return nll;
+  
+}
+```
+
+*** 
+
+### Exercise 2
+1.
+<details> 
+  <summary> Implement the AR(1) correlation structure. Tips: Use ```Sigma.diagonal()```to fill the diagonal     of the covariance matrix. </summary> 
+    ```c++ 
+        Sigma.diagonal() = sigma_logF * sigma_logF;
+        rho = trans(trans_rho(0)); 
+        for(int i = 0; i < n_age; i++){
+          for(int j = 0; j < i; j++){
+            Sigma(i, j) = pow(rho, Type(i - j)) * sigma_logF(i) * sigma_logF(j);
+            Sigma(j, i) = Sigma(i, j);
+          }
+        }
+    ```
+</details> 
+
+
+2. 
+<details> 
+  <summary> Compare the models with different correlation structure and find the best one based on AUC      </summary> 
+    ```{r, eval=T, results='hide'}
+    compile("Fobs.cpp")
+    dyn.load(dynlib("Fobs"))
+    
+    
+    load("Fobs.Rdata")
+    
+    # Calculate AIC for a given model
+    TMBAIC <- function(opt){
+        k <- length(opt$par)
+        aic <- 2 * k + 2 * opt$objective
+        return(aic)
+      }
+    
+    
+    # No correlation - Model 1 -----
+    data <- list(Fobs = Fobs$Fobs,
+                 cormode = 0)
+    
+    param <- list(logF = matrix(0, nrow = nrow(Fobs$Fobs), ncol = ncol(Fobs$Fobs)),
+                  log_sigma_logF = rep(0, ncol(Fobs$Fobs)),
+                  trans_rho = if(data$cormode == 0){numeric(0)} else{0.1},
+                  log_sigma_Fobs = 0)
+    
+    obj_mod0 <- MakeADFun(data, param, random = "logF", DLL = "Fobs")
+    opt_mod0 <- nlminb(obj_mod0$par, obj_mod0$fn, obj_mod0$gr)
+    
+    
+    # Compund symmetry - Model 2 ------
+    data <- list(Fobs = Fobs$Fobs,
+                 cormode = 1)
+    
+    param <- list(logF = matrix(0, nrow = nrow(Fobs$Fobs), ncol = ncol(Fobs$Fobs)),
+                  log_sigma_logF = rep(0, ncol(Fobs$Fobs)),
+                  trans_rho = if(data$cormode == 0){numeric(0)} else{0.1},
+                  log_sigma_Fobs = 0)
+    
+    obj_mod1 <- MakeADFun(data, param, random = "logF", DLL = "Fobs")
+    opt_mod1 <- nlminb(obj_mod1$par, obj_mod1$fn, obj_mod1$gr)
+    
+    
+    # AR(1) - Model 3 ------
+    data <- list(Fobs = Fobs$Fobs,
+                 cormode = 2)
+    
+    param <- list(logF = matrix(0, nrow = nrow(Fobs$Fobs), ncol = ncol(Fobs$Fobs)),
+                  log_sigma_logF = rep(0, ncol(Fobs$Fobs)),
+                  trans_rho = if(data$cormode == 0){numeric(0)} else{0.1},
+                  log_sigma_Fobs = 0)
+    
+    obj_mod2 <- MakeADFun(data, param, random = "logF", DLL = "Fobs")
+    opt_mod2 <- nlminb(obj_mod2$par, obj_mod2$fn, obj_mod2$gr)
+    
+    # Calculate AIC for all models
+    TMBAIC(opt_mod0)
+    TMBAIC(opt_mod1)
+    TMBAIC(opt_mod2)
+    
+    ```
+</details> 
