@@ -312,9 +312,10 @@ Type objective_function<Type>::operator()(){
   <summary> Write down the joint negative log likelihood of the recruitment state-space model </summary> 
   Let $R^{\text(obs)} = (R_1^\text{obs}, \ldots, R_T^\text{obs})$ and $R = (R_1, \ldots, R_T)$. The joint distribution of        $(R^\text{obs}, R)$ can be written as 
   \begin{align}
-    L(\theta) &= \int f(R^\text{obs}, R) dR = \int f(R^\text{obs} | R) f(R) dR \\
-    &= \int f(R_1^\text{obs} | R_1) f(R_1) \prod_{y=2}^T f(R_y^\text{obs} | R_y) f(R_y) dR
+    L(\theta) &= \int f(R^\text{obs}, R) dR = \int f_{R^\text{obs}}(R^\text{obs} | R) f_R(R) dR \\
+    &= \int f_{R_1^\text{obs}}(R_1^\text{obs} | R_1) f_{R_1}(R_1) \prod_{y=2}^T f_{R_y^\text{obs}}(R_y^\text{obs} | R_y) f_{R_y}(R_y) dR,
   \end{align}
+  where $f_{R_y^\text{obs}}$ is the conditional density of $\log R_y^\text{obs}$ given $R_y$ and $f_{R_y}$ is the density of the latent recruitment $R_y$.
   The negative log likelihood we need to implement in TMB is therefore 
   \[
     - \log L(\theta) = -N(R_1,\sigma_{R^\text{obs}}^2) - \sum_{y=2}^T N(R_y,\sigma_{R^\text{obs}}^2) - \sum_{y=2}^T \log             N(R_{y-1}, \sigma_R^2),
