@@ -6,7 +6,7 @@ source("../utils.R")
 ```
 
 
-## **One step ahead (OSA) residuals** 
+## **One-step-ahead (OSA) residuals** 
 In this example you learn:
 
 * The basic ideas behind one-step-ahead (OSA) residuals
@@ -66,8 +66,8 @@ include_source("OSA.cpp", linesToInclud=c(1:999))
   DATA_VECTOR(y);                  //Observations
   DATA_VECTOR_INDICATOR(keep, y);  //Indicator variable for one-step-ahead predictions
   DATA_SCALAR(huge);    //Used to integreat out X_1
-  PARAMETER_VECTOR(x);  //The latent AR1 random variable
-  PARAMETER(mu);        //The drift
+  PARAMETER_VECTOR(x);  //The latent AR1 random variables
+  PARAMETER(mu);        //The drift in latent effect
   PARAMETER(logsigma);  //Log sd of epsilon
   PARAMETER(logs);      //Log sd of psi
 ```
@@ -94,16 +94,11 @@ for (int i = 1; i < x.size(); ++i){
 for (int i = 0; i < y.size(); ++i){
   nll -= keep(i) * dnorm(y(i), x(i), exp(logs), true);
 }
+return nll;
 ```
 Note the `keep` vector, which is of interest in this example.
 </details>
 
-<details>  
-  <summary>Retuns the negative log likelihood</summary>
-```c++
-  return nll;
-```
-</details>
 
 ***
 
@@ -137,7 +132,7 @@ opt = nlminb(obj$par, obj$fn,obj$gr)
 <details>  
 <summary>Calcualte OSA residuals</summary>
 ```r
-predict  <- oneStepPredict(obj,observation.name="y",method="oneStepGeneric",data.term.indicator = "keep")
+predict  <- oneStepPredict(obj,observation.name="y",method="fullGaussian",data.term.indicator = "keep")
 ```
 The OSA residuals are now available in `predict$residual`. 
 

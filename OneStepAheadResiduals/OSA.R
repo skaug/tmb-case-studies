@@ -20,7 +20,7 @@ opt = nlminb(obj$par, obj$fn,obj$gr)
 
 
 ### One-step predictions
-predict  <- oneStepPredict(obj,observation.name="y",method="oneStepGeneric",data.term.indicator = "keep")
+predict  <- oneStepPredict(obj,observation.name="y",method="fullGaussian",data.term.indicator = "keep")
 plot(predict$residual,xlab="Time", main = "OSA residuals", ylab = "Residual")
 qqnorm(predict$residual)
 qqline(predict$residual, col = "steelblue", lwd = 2)

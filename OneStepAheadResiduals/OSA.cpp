@@ -7,7 +7,7 @@ Type objective_function<Type>::operator()()
   DATA_VECTOR_INDICATOR(keep, y);  //Indicator variable for one-step-ahead predictions
   DATA_SCALAR(huge);    //Used to integreat out X_1
   PARAMETER_VECTOR(x);  //The latent AR1 random variable
-  PARAMETER(mu);        //The drift
+  PARAMETER(mu);        //The drift in latent effect
   PARAMETER(logsigma);  //Log sd of epsilon
   PARAMETER(logs);      //Log sd of psi
   
