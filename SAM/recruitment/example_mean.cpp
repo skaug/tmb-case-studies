@@ -12,9 +12,11 @@ Type objective_function<Type>::operator()(){
   Type nll = 0; // negative log likelihood 
   
   // loop over observations
-  for(int i = 0; i < n; i++){
-    nll -= dnorm(x(i), mu, Type(1), true);
-  }
+  // for(int i = 0; i < n; i++){
+  //   nll -= dnorm(x(i), mu, Type(1), true);
+  // }
+  
+  nll = -sum(dnorm(x, mu, Type(1), true));
   
   // return negative log likelihood
   return nll; 

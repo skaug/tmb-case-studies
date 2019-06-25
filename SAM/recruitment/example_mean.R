@@ -14,3 +14,7 @@ data <- list(x = x,
 
 obj <- MakeADFun(data = data, parameters = param, DLL = "example_mean")
 opt <- nlminb(obj$par, obj$fn, obj$gr)
+
+rep <- sdreport(obj)
+
+summary(rep)
