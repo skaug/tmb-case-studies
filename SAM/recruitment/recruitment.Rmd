@@ -126,6 +126,10 @@ PARAMETER(log_sigma_r);
 
 ***
 #### Exercice 1
+Make a new TMB project (`recruit1.R` and `recruit1.cpp`) in the same folder. Copy code from the above *Full code for example*, and inside
+`recruit1.cpp` change `recruitment` to `recruit1` in 3 places.
+You should be able to compile the model but the call to `nlminb` 
+will not work until you have completed the steps below.
 
 1.
 <details>
@@ -142,7 +146,7 @@ PARAMETER(log_sigma_r);
 
 2. 
 <details> 
-  <summary> Implement the likelihood from 1. </summary> 
+  <summary> Implement in ``recruit1.cpp`` the likelihood from 1. </summary> 
   
     ```c++ 
       for(int i = 1; i < Robs.size(); i++){
