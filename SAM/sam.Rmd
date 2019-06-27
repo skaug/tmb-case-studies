@@ -21,13 +21,13 @@ Let $N_{a,y}$ be the number of cod of age $a$ in year $y$. The number of fish ne
 $\begin{align}
 \log N_{1,y} &= \log R({\bf N}_{y-1}) + \eta_{1,y} \\
 \log N_{a,y} &= \log N_{a-1,y-1} - F_{a-1,y-1} - M_{a-1,y-1} + \eta_{a,y}\\
-\log N_{A,y} &= \log (N_{A-1,y-1} e^{- F_{A-1,y-1} - M_{A-1, y-1}} + N_{A,y-1} e^{ - F_{A,y-1} - M_{A, y-1}}) + \eta_{Ay}
+\log N_{A,y} &= \log (N_{A-1,y-1} e^{- F_{A-1,y-1} - M_{A-1, y-1}} + N_{A,y-1} e^{ - F_{A,y-1} - M_{A, y-1}}) + \eta_{A,y}
  \end{align}$
 
-where $R(\cdot)$ is a function describing the spawning productivity of the cod, $A$ represents a maximum age, $F$ represents the fishing mortality and $M$ the natural mortality. It is assumed that the process error, $\eta_{a,y}$, is iid N(0,$\sigma_{\eta,a}^2$) distributed. 
+where $R(\cdot)$ is a function describing the spawning productivity of the cod, $A$ represents a maximum age, $F$ represents the fishing mortality and $M$ the natural mortality. It is assumed that the process error, $\eta_{a,y}$, is iid N(0,$\sigma_{\eta,a}^2$), i.e. 
+independently normally distributed. 
 
-<details> <summary> Details about fishing mortality and observation equations: </summary> 
-
+<details> <summary> Details about fishing mortality and observation equations </summary> 
 
 We assume that the fishing mortality is given by 
 \begin{align}
@@ -41,9 +41,6 @@ $\begin{align}
 \end{align}$
 
 It is assumed that  $\pmb{\epsilon}^c \sim N(0,\pmb{\Sigma}_c)$and $\pmb{\epsilon}^{(s)} \sim N(0,\pmb{\Sigma}_s)$. These time series are the observations used to estimate the parameters in SAM.
-
-
-
 </details>
 
 <details> <summary> Summary of the survey and commercial data in year 1999.</summary>
