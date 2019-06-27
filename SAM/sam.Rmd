@@ -7,10 +7,19 @@ source("../utils.R")
 
 
 ## **Stock assessment model (SAM)** 
-In the examples [recruitment](https://github.com/skaug/tmb-case-studies/tree/jens/dev/SAM/recruitment), [survival](https://github.com/skaug/tmb-case-studies/tree/jens/dev/SAM/survival) and [observations](https://github.com/skaug/tmb-case-studies/tree/jens/dev/SAM/observations) we went in detail trough key parts of SAM. In this example we have nested these key parts together and illustrate a full implementation of SAM. In this example you learn:
+In this example you learn:
 
-* How to implement a SAM-model in TMB.
-* How to extract quantities used in stock assesment from SAM.
+* The details of the SAM model (TMB implementation).
+* How to extract quantities used in stock assessment from SAM.
+
+For pedagogical reasons SAM is presented as three separate components:
+
+1. [Recruitment](https://github.com/skaug/tmb-case-studies/tree/master/SAM/recruitment)
+2. [Survival](https://github.com/skaug/tmb-case-studies/tree/master/SAM/survival)
+3. [Observations](https://github.com/skaug/tmb-case-studies/tree/master/SAM/observations) 
+
+It is recommended that you do this exercises before you continue. You should then be able
+to recognize the parts 1-3 when you look at the SAM code below. 
 
 
 ***
@@ -24,8 +33,8 @@ $\begin{align}
 \log N_{A,y} &= \log (N_{A-1,y-1} e^{- F_{A-1,y-1} - M_{A-1, y-1}} + N_{A,y-1} e^{ - F_{A,y-1} - M_{A, y-1}}) + \eta_{A,y}
  \end{align}$
 
-where $R(\cdot)$ is a function describing the spawning productivity of the cod, $A$ represents a maximum age, $F$ represents the fishing mortality and $M$ the natural mortality. It is assumed that the process error, $\eta_{a,y}$, is iid N(0,$\sigma_{\eta,a}^2$), i.e. 
-independently normally distributed. 
+where $R(\cdot)$ is a function describing the spawning productivity of the cod, $A$ represents a maximum age, $F$ represents the fishing mortality and $M$ the natural mortality. It is assumed that the process error $\eta_{a,y}$ is iid N(0,$\sigma_{\eta,a}^2$), i.e. independently normally distributed. We combine all age specific quantites into vectors: 
+${\bf N}_{y}=(N_{1,y},\ldots,N_{A,y})$ and ${\bf F}_{y}=(F_{1,y},\ldots,F_{A,y})$.
 
 <details> <summary> Details about fishing mortality and observation equations </summary> 
 
@@ -33,17 +42,18 @@ We assume that the fishing mortality is given by
 \begin{align}
 \log {\bf F}_y = \log {\bf F}_{y-1} + \pmb{\xi_y},
 \end{align}
-were $\pmb{\xi} \sim N(0,\pmb{\Sigma}_{\xi})$. We further observe time of series commercial catches and indexes which are assumed given by:
+where $\pmb{\xi_y} \sim N(0,\pmb{\Sigma}_{\xi})$, i.e. multivariate normally distributed with covariance matrix 
+$\pmb{\Sigma}_{\xi}$. The observable data are time series of commercial catches and survey indexes which are assumed given by:
 
 $\begin{align}
 \log C_{a,y} &= \log \Big( \frac{F_{a,y}}{F_{a,y} + M_{a,y}} (1- e^{-F_{a,y} - M_{a,y}})N_{a,y} \Big) + \epsilon^c_{a,y} \\
 \log I_{y}^{(s)} &= \log ( Q_a^{(s)} e^{-(F_{a,y} + M_{a,y})day^{(s)}/365} N_{a,y}) + \epsilon^s_{a,y}   \\
 \end{align}$
 
-It is assumed that  $\pmb{\epsilon}^c \sim N(0,\pmb{\Sigma}_c)$and $\pmb{\epsilon}^{(s)} \sim N(0,\pmb{\Sigma}_s)$. These time series are the observations used to estimate the parameters in SAM.
+It is assumed that  $\pmb{\epsilon}^c \sim N(0,\pmb{\Sigma}_c)$and $\pmb{\epsilon}^{s} \sim N(0,\pmb{\Sigma}_s)$. These time series are the observations used to estimate the parameters in SAM.
 </details>
 
-<details> <summary> Summary of the survey and commercial data in year 1999.</summary>
+<details> <summary> Example data: survey and commercial data in year 1999.</summary>
 ```{r,echo=FALSE, comment=""}
 #head(Vegetation,5)
 load("input.RData")
@@ -139,16 +149,8 @@ include_source("sam.cpp", linesToInclud=c(29:999))
 ```
 </details>
 
-
 <details>
-  <summary>Define the objective function, $P(\pmb{\eta}, \pmb{\epsilon}^{s},\pmb{\epsilon}^{c}| \pmb{I}, \pmb{C})$. </summary>
-```c++
-  Type nll=0; //negative log-likelihood
-```
-</details>
-
-<details>
-  <summary>Define the correlation structure of the fishing mortality, $\pmb{\Sigma}_{\xi}$</summary>
+  <summary>Calculate the covariance matrix $\pmb{\Sigma}_{\xi}$ for the fishing mortality </summary>
 ```c++
   for(int i=0; i<stateDimF; ++i){
     fcor(i,i)=1.0;
@@ -188,7 +190,7 @@ include_source("sam.cpp", linesToInclud=c(29:999))
 </details>
 
 <details>
-  <summary>Calculates the likelihood contribution from the fishing mortality </summary>
+  <summary>Calculates the likelihood contribution from process model for fishing mortality $F$ </summary>
 ```c++
   using namespace density;
   MVNORM_t<Type> neg_log_densityF(fvar);
@@ -199,7 +201,7 @@ include_source("sam.cpp", linesToInclud=c(29:999))
 </details>
 
 <details>
-  <summary>Calculates the SSB, which is used for recruitment </summary>
+  <summary>Calculates the SSB, used to predict recruitment </summary>
 ```c++
   for(int i=0;i<timeSteps;i++){ // calc ssb
     ssb(i)=0.0;
@@ -211,8 +213,7 @@ include_source("sam.cpp", linesToInclud=c(29:999))
 ```
 </details>
 
-<details>
-  <summary> Calculates the likelihood contribution from $\pmb{\eta}$.  </summary>
+<details> <summary> Calculates the likelihood contribution from the process model for $N$ (equations above).  </summary>
 ```c++
   matrix<Type> nvar(stateDimN,stateDimN);
   for(int i=0; i<stateDimN; ++i){
@@ -254,7 +255,7 @@ include_source("sam.cpp", linesToInclud=c(29:999))
 </details>
 
 <details>
-<summary> Calculates the likelihood contribution from the observations (indexes and commercial ladings)   </summary>
+<summary> Calculates the likelihood contribution from the observations (indexes and commercial landings)   </summary>
 ```c++
   int f, ft, a, y,yy, scaleIdx;
   int minYear=CppAD::Integer((obs(0,0)));
@@ -355,13 +356,6 @@ include_source("sam.cpp", linesToInclud=c(29:999))
 ```
 </details>
 
-
-<details>
-<summary>Return the objective function </summary>
-```c++
-  return nll;
-```
-</details>
 
 
 ***
