@@ -53,13 +53,14 @@ $\begin{align}
 It is assumed that  $\pmb{\epsilon}^c \sim N(0,\pmb{\Sigma}_c)$and $\pmb{\epsilon}^{s} \sim N(0,\pmb{\Sigma}_s)$. These time series are the observations used to estimate the parameters in SAM.
 </details>
 
-<details> <summary> Example data: survey and commercial data in year 1999.</summary>
+<details> <summary> Example data: survey and commercial catch data in year 1999.</summary>
 ```{r,echo=FALSE, comment=""}
 #head(Vegetation,5)
 load("input.RData")
 rownames(data$obs) <- NULL
 print(data$obs[which(data$obs[,1]==1999),1:4])
 ```
+The variable `fleet` provides information about if the observation is commercial catch or which survey it is from. In this example refere the value 1 to catch data, and 2 and 3 to the two separate surveys.
 </details>
 
 ***
