@@ -126,7 +126,10 @@ and now we retrieve them in order to add the contribution to the objective funct
 * `beta.segment(k,m_i)` returns elements $\beta_k,\beta_{k+1},\ldots,\beta_{k+m_i}$.  
 * `S.block(k,k,m_i,m_i)` returns submatrix of $S$ with upper left corner $(k,k)$ and lower
   right corner $(k+m_i,k+m_i)$.
-* The contribution from the $i$th spline is $0.5m_i\lambda_i - 0.5\lambda_i\beta_i^T S_i \beta_i$.
+* The contribution from the $i$th spline is $0.5m_i\log(\lambda_i) - 0.5\lambda_i\beta_i^T S_i \beta_i$. A bit of explanation
+is needed here. This prior on $\beta$ is a zero mean Gaussian distribution with precission (inverse covariance) matrix
+$\lambda_iS_i$. Note that $S_i$  is not full rank, so we are dealing with a degenerate mutivariate distribution.
+The part $0.5m_i\log(\lambda_i)$ is comming from the normalizing constant of the multivariate mean Gaussian distribution. A reference is needed here........
 * `GMRF(S_i).Quadform(beta_i)` is the quadratic form $\beta_i^T S_i \beta_i$ (it is hard
 to get the compiler to accept the  code `beta_i*(S_i*beta_i)  `).
 </details>
