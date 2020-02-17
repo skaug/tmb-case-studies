@@ -17,12 +17,16 @@ In this example you learn:
 
 ***
 #### Description of the practical situation
-Let $Y(d)$ be the biodiversity, as given by the variable `Richness` in the data. We assume that $Y(d) \sim N(\mu,\sigma^2)$, were 
-$$\mu = \beta_0 +  f_1(rock) +f_2(litter) + f_3(soil) + f_4(fallPrec) + f_5(sprTmax).$$
-Here, $f_1,\ldots,f_5$ are splines, modelled as function of covariates `rock`, `litter`,... (see data summary below).
+Let $Y$ be the biodiversity, as given by the variable `Richness` in the data. We assume that $Y \sim N(\mu,\sigma^2)$, were 
+\begin{equation}
+\mu = \beta_0 +  f_1(rock) +f_2(litter) + f_3(soil) + f_4(fallPrec) + f_5(sprTmax).\qquad (1)
+\label{def:mu}
+\end{equation}
+Here, $f_1,\ldots,f_5$ are splines, modelled as function of covariates `rock`, `litter`,... (see data excerpt below).
 See page 63 in Zuur (2009) for a similar example with use of the same data.
 <details> <summary> "Penalizing the splines": how to get an appropriate level of smoothness?</summary>
 We let the coefficients ($\beta$) of the $i$th spline have a multivariate normal distribution with precision matrix $\lambda_i \pmb{S}_i$, where $\lambda_i$ is a penalization parameter and $\pmb{S}_i$ is a penalization matrix extracted from the R-package `mgcv`. The matrices $\pmb{S}_i$ are singular, and hence the multivariate normal distributions are degenerate. However, when bringing in data through the likelihood, the (posterior) precission matrix becomes non-singular. See [Wood (2017)](https://books.google.no/books?id=JTkkDwAAQBAJ&printsec=frontcover&dq=generalized+additive+models+wood+2017&hl=no&sa=X&ved=0ahUKEwjp4o2sicHbAhWEFZoKHaHYBQ0Q6AEIJzAA#v=onepage&q=generalized%20additive%20models%20wood%202017&f=false) for details.
+Implementation details are given in under the section "C++ code step-by-step" below.
 
 ```{r,echo=FALSE, comment="",fig.cap="Figure: Illustration of estimated splines with (red) and without (black) the penalization.", out.width = "300px"}
 knitr::include_graphics("withAndWithout.png")
@@ -31,7 +35,7 @@ knitr::include_graphics("withAndWithout.png")
 
 </details>
 
-<details> <summary> Summary of the data.</summary>
+<details> <summary>Data excerpt</summary>
 ```{r,echo=FALSE, comment=""}
 head(Vegetation,5)
 ```
@@ -88,7 +92,7 @@ $$
 ```c++
     PARAMETER(beta0);       //Intercept
     PARAMETER_VECTOR(beta); //Spline regression parameters (5 splines stacked)
-    PARAMETER_VECTOR(log_lambda);// Log penalization parameters
+    PARAMETER_VECTOR(log_lambda);// Log penalization parameters (for 5 splines)
     PARAMETER(log_sigma);   // log(SD) of measurement error
 ```
 </details>
@@ -109,9 +113,11 @@ $$
 </details>
 <details>
 
-  <summary>Calculate the prior contribution of the spline (the penalilzation)</summary>
-When passing data from R we have stacked the five $S$ matrices (and similarly the $\beta$ vectors), 
-and now we retrieve them in order to add the contribution to the objective function from all five splines.
+  <summary>Calculate the prior contribution from each of the 5 spline</summary>
+  This is where the "complicated stuff" is going on. The following code does two things:
+  
+  * Retrieve the five $S$ matrices and $\beta$ vectors corresponding to each spline. 
+  * Calculate the (multivariate) normal prior on each spline coeff vector $\beta_i$ (with precission matrix $\lambda_i S_i$).
 ```c++
   int k=0;  // Counter
   for(int i=0;i<Sdims.size();i++){
@@ -142,7 +148,7 @@ to get the compiler to accept the  code `beta_i*(S_i*beta_i)  `).
 </details>
 <details>
 
-  <summary>Calculate the linear predictor, $\mu$.   </summary>
+  <summary>Calculate the linear predictor, $\mu$, defined in eqn. (1).   </summary>
 ```c++
     vector<Type> mu(Y.size());
     mu = beta0 + X*beta;
@@ -152,7 +158,7 @@ to get the compiler to accept the  code `beta_i*(S_i*beta_i)  `).
 </details>
 <details>
 
-<summary>Calculate the negative log likelihood $\sum_{i=1}^{n}\log P(Y_i|\sigma,\text{splines})$</summary>
+<summary>Calculate the negative log likelihood $-\sum_{i=1}^{n}\log P(Y_i|\beta_0,\beta,\sigma)$</summary>
 ```c++
     for(int i=0; i<Y.size(); i++){
       nll -= dnorm(Y(i), mu(i), sigma, true);
