@@ -11,7 +11,7 @@ In this example you learn:
 
 * How to use the SPDE approximation of a Matern spatial random field with barriers in TMB
 
-```{r,echo=FALSE, comment="",fig.cap="Figure: Mesh set up in R-INLA,  used for the GMRF representation in TMB. Blue polygons illustrate coastline and boundary. Red points illustrates observations, and size of points illustrate observation size.", out.width = "300px"}
+```{r,echo=FALSE, comment="",fig.cap="Figure: Mesh set up in R-INLA,  used for the GMRF representation in TMB. Blue polygons illustrate coastline and boundary, and red points illustrate observations and observation size.", out.width = "500px"}
 knitr::include_graphics("mapAndMesh.png")
 ```
 
@@ -63,7 +63,6 @@ include_source("spdeBarrier.cpp", linesToInclud=c(1:999))
   DATA_VECTOR(y);      //The response
   DATA_STRUCT(spdeMatricesBarrier,spde_b); //Structure needed for the barrier procedure
   DATA_SPARSE_MATRIX(A);  //Matrix for interpolating points witin triangles
-  DATA_INTEGER(barrier); // if barrier==1, barrier procedure is used
   DATA_VECTOR(c);      // Scaling of range
   DATA_MATRIX(X);         //Design matrix for fixed effects
 ```
@@ -270,7 +269,7 @@ X <- model.matrix( ~ 1,
               X = as.matrix(X)
   )
 ```
-* Two data sources `c` and `spdeMatricesBarrier` is of speciall interest in this case study. The secound element in `c` provides the scaling factor of the range on land, and `spdeMatricesBarrier` provides the structures needed to use the barrier option in TMB.
+* Two data sources `c` and `spdeMatricesBarrier` are of speciall interest in this case study. The secound element in `c` provides the scaling factor of the range on land, and `spdeMatricesBarrier` provides the structures needed to use the barrier option in TMB.
 </details>
 
 <details>  
@@ -314,7 +313,7 @@ X <- model.matrix( ~ 1,
   plot(poly.barrier, add=T, main = 'Stationary Model')
   contour(proj$x, proj$y,inla.mesh.project(proj, latentFieldMAP) ,add = T,labcex  = 1,cex = 1,nlevels = 5)
 ```
-* Code to run model with R-INLA is given here: https://haakonbakka.bitbucket.io/btopic128.html#4_case_study.
+* Code to run model with R-INLA is given here: https://haakonbakkagit.github.io/btopic128.html#3_case_study.
 
   ![](spatialBarrierTMB.png){width=40%} ![](spatialBarrierINLA.png){width=40%}
 
