@@ -89,12 +89,12 @@ print(timeUsed)
 range = sqrt(8)/exp(opt$par[which(names(opt$par)=="log_kappa")])
 Qinla = INLA::inla.barrier.q(fem, ranges = c(range*data$c[1],range*data$c[2]))
 Qtmb = obj$report()$Qtest
-relativeDifferece = (Qtmb-Qinla)/Qtmb
+relativeDifferece = abs((Qtmb-Qinla)/Qtmb)
 relativeDifferece[Qtmb==0] = 0
 if(length(which(Qtmb==0 & Qinla !=0))){
   print("relative difference between INLA::inla.barrier.q() is infinit")
 }else{
-  print(paste0("relative difference between Qtmb and INLA::inla.barrier.q() is: ", max(max(relativeDifferece))))
+  print(paste0("relative difference between Qtmb and INLA::inla.barrier.q() is: ", max(relativeDifferece)))
 }
 
 
