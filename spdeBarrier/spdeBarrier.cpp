@@ -63,5 +63,8 @@ template<class Type>
   ADREPORT(range);
   //---------------------------------------------
 
+  SparseMatrix<Type> Qtest = Q_spde(spdeMatricesBarrier,kappa,c);
+  REPORT(Qtest); //for internal checking inla.barrier.q() implementation in TMB
+  
   return nll;
 }

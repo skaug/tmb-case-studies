@@ -22,7 +22,7 @@ mesh = inla.mesh.2d(boundary = poly.water,
 #Plot mesh
 png(file = "mapAndMesh.png",height = 900,width = 900)
 plot(mesh) 
-points(df$locx, df$locy, col="red",cex = sqrt(df$y.smelt)+1)
+points(df$locx, df$locy, col="red",cex = log(df$y.smelt+3), pch = "o")
 dev.off()
 
 #Construct spatial interpolation matrix
@@ -84,6 +84,20 @@ endTime = Sys.time()
 timeUsed = endTime - startTime
 print(timeUsed)
 #------------------------
+
+#Check implementation of inla.barrier.q()
+range = sqrt(8)/exp(opt$par[which(names(opt$par)=="log_kappa")])
+Qinla = INLA::inla.barrier.q(fem, ranges = c(range*data$c[1],range*data$c[2]))
+Qtmb = obj$report()$Qtest
+relativeDifferece = (Qtmb-Qinla)/Qtmb
+relativeDifferece[Qtmb==0] = 0
+if(length(which(Qtmb==0 & Qinla !=0))){
+  print("relative difference between INLA::inla.barrier.q() is infinit")
+}else{
+  print(paste0("relative difference between Qtmb and INLA::inla.barrier.q() is: ", max(max(relativeDifferece))))
+}
+
+
 
 #Extract range
 rangeIndex = which(row.names(summary(rep,"report"))=="range")
