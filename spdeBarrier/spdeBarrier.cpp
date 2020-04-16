@@ -1,15 +1,20 @@
 #include <TMB.hpp>
+using namespace Eigen;
+using namespace tmbutils;
+
+#include "barrierTMB.hpp"
+
 template<class Type>
   Type objective_function<Type>::operator() ()
 {
   using namespace R_inla; //includes SPDE-spesific functions, e.g. Q_spde()
+  using namespace Eigen;  //Needed for utilisation of sparse structures
   using namespace density;
-  using namespace Eigen; //Needed for utilisation of sparse structures
 
   //Load data and parameters----------------
   DATA_VECTOR(y);      //The response
   DATA_STRUCT(spdeMatrices,spde_t); //Three matrices needed for representing the GMRF, see p. 8 in Lindgren et al. (2011)
-  DATA_STRUCT(spdeMatricesBarrier,spde_b); //Structure needed for the barrier procedure
+  DATA_STRUCT(spdeMatricesBarrier,spde_barrier_t); //Structure needed for the barrier procedure
   DATA_SPARSE_MATRIX(A);  //Matrix for interpolating points witin triangles
   DATA_INTEGER(barrier); // if barrier==1, barrier procedure is used
   DATA_VECTOR(c);      // Scaling of range
