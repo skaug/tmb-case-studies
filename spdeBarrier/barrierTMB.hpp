@@ -6,7 +6,7 @@ struct spde_barrier_t{
   SparseMatrix<Type> D0;
   SparseMatrix<Type> D1;
   SparseMatrix<Type> I;
-  spde_b(SEXP x){  /* x = List passed from R */
+  spde_barrier_t(SEXP x){  /* x = List passed from R */
     C0 = asVector<Type>(getListElement(x,"C0"));
     C1 = asVector<Type>(getListElement(x,"C1"));
     D0 = asSparseMatrix<Type>(getListElement(x,"D0"));
