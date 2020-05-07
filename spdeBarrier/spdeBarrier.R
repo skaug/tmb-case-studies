@@ -1,6 +1,3 @@
-#Currently needs a version of TMB which includes the barrier procedure
-#devtools::install_github("OlavNikolaiBreivik/adcomp/TMB", ref = "barrierAndAD")
-
 library(INLA)
 library(fields)
 library(TMB)
@@ -20,10 +17,8 @@ mesh = inla.mesh.2d(boundary = poly.water,
                     cutoff = 0.06,
                     offset = c(0.6, 4.6))
 #Plot mesh
-png(file = "mapAndMesh.png",height = 900,width = 900)
 plot(mesh) 
 points(df$locx, df$locy, col="red",cex = log(df$y.smelt+3), pch = "o")
-dev.off()
 
 #Construct spatial interpolation matrix
 A = inla.spde.make.A(mesh, loc = cbind(df$locx, df$locy))
@@ -57,7 +52,7 @@ X <- model.matrix( ~ 1,
 
 
 
-#Define data and parameters-------
+#Define data and parameters
 data = list(y = df$y.smelt,
             A = A,
             spdeMatrices = spdeMatrices,
@@ -70,34 +65,18 @@ data = list(y = df$y.smelt,
 par = list(beta = rep(0,dim(X)[2]),
            log_tau =1,
            log_kappa = -3,
-           log_sigmaIID = -3,
+           log_sigma_e = -3,
            x = rep(0,mesh$n),
-           xiid = rep(0,length(df$y.smelt)))
-#--------------------------------
+           epsilon = rep(0,length(df$y.smelt)))
 
-#Estimating the model and extract results-------------
+#Estimating the model and extract results
 startTime <- Sys.time()
-obj <- MakeADFun(data, par, random=c("x", "xiid"), DLL="spdeBarrier")
+obj <- MakeADFun(data, par, random=c("x", "epsilon"), DLL="spdeBarrier")
 opt <- nlminb(obj$par, obj$fn, obj$gr)
 rep = sdreport(obj)
 endTime = Sys.time()
 timeUsed = endTime - startTime
 print(timeUsed)
-#------------------------
-
-#Check implementation of inla.barrier.q()
-range = sqrt(8)/exp(opt$par[which(names(opt$par)=="log_kappa")])
-Qinla = INLA::inla.barrier.q(fem, ranges = c(range*data$c[1],range*data$c[2]))
-Qtmb = obj$report()$Qtest
-relativeDifferece = abs((Qtmb-Qinla)/Qtmb)
-relativeDifferece[Qtmb==0] = 0
-if(length(which(Qtmb==0 & Qinla !=0))){
-  print("relative difference between INLA::inla.barrier.q() is infinit")
-}else{
-  print(paste0("relative difference between Qtmb and INLA::inla.barrier.q() is: ", max(relativeDifferece)))
-}
-
-
 
 #Extract range
 rangeIndex = which(row.names(summary(rep,"report"))=="range")
@@ -109,7 +88,7 @@ proj = inla.mesh.projector(mesh)
 latentFieldMAP = rep$par.random[names(rep$par.random)=="x"]/exp(rep$par.fixed[which(names(rep$par.fixed)=="log_tau")])
 image.plot(proj$x,proj$y, inla.mesh.project(proj, latentFieldMAP),col =  colorRampPalette(c("white","yellow", "red"))(12),
            xlab = 'Easting', ylab = 'Northing',zlim = c(-4,4),
-           main = "MAP estimate of spatial latent field",
+           main = "TMB: MAP estimate of spatial latent field",
            cex.lab = 1.1,cex.axis = 1.1, cex.main=1, cex.sub= 1.1)
 plot(inla.barrier.polygon(mesh, barrier.triangles), add=T)
 contour(proj$x, proj$y,inla.mesh.project(proj, latentFieldMAP) ,add = T,labcex  = 1,cex = 1)
