@@ -10,7 +10,7 @@ accompayning `gdb` debugger.
 * Linux: debugging works without problems
 * Mac: ?
 * Windows: The behaviour of `gdb` has varied across
-  versions of R and Rtools. In case of problems, please consult: [https://github.com/kaskr/adcomp/wiki/Windows-installation#windows-debugging](https://github.com/kaskr/adcomp/wiki/Windows-installation#windows-debugging).
+  versions of R and Rtools. In case of problems, please consult: [https://github.com/kaskr/adcomp/wiki/Windows-installation#windows-debugging](https://github.com/kaskr/adcomp/wiki/Windows-installation#windows-debugging). Further, allthough it is possible to run the simple example in this tutorial under Windows, larger .cpp files will not work. It is generally recommended to install [Windows Subsystem for Linux](https://en.wikipedia.org/wiki/Windows_Subsystem_for_Linux). It is a bit of work setting it up, but once installed it is easy to switch over to that whenever it is necessary to use the debugger.
 
 ***
   
@@ -153,14 +153,13 @@ At the `(gdb)` promt in the terminal window, give the command `frame 2`:
 14          y(i);  // Out-of-range error when i == y.size()
 (gdb)
 ```
-This show the code line that caused the crash. Usually this
+This prints the code line that caused the crash. Usually this
 is enough to find the source of the error, but below we will 
 explore more advanced debugging features.
 
-####Comment
-The appropriate "frame number" (here 2) will vary from model to model. 
+**Comment** The appropriate "frame number" (here \#2) will vary from model to model. 
 Experiment with different numbers in the range 2-5 until you see the text
- `in objective_function<double>::operator()`.
+ `in objective_function<double>::operator()` (and the name of your .cpp file).
 </details>
 
 <details> <summary> How do I quit the debugger?
@@ -182,7 +181,7 @@ Quit anyway? (y or n) y
 <details> <summary> A quicker way to find the line number.
 </summary>
 
-If you is only interested in the line number of the error (but it does not currently work under Windows):
+If you are only interested in the line number of the error (does not currently work under Windows):
 ```r 
 gdbsource("debug_tutorial.R",interactive=FALSE)
 ```
@@ -191,7 +190,7 @@ gdbsource("debug_tutorial.R",interactive=FALSE)
 <details> <summary> Print the value of variables
 </summary>
 
-It is very useful to also be able to see the value stored
+It is very useful to  be able to see the value stored
 in variables when the crash occurred. For example, we know
 the error occured in a loop, and we would like to know for which
 value of `i`:
@@ -217,7 +216,7 @@ which explains why the crash occured.
 <details> <summary> More about printing of variables, vectors, matrices, ...
 </summary>
 
-The above exercise did not show how to print the content of a vector say.
+The above exercise did not show how to print the content of a vector, say.
 To allow that we have written some special functions in the file `debug_print.hpp` which you can extend if necessary. Some examples 
 of printing:
 ```r 
@@ -226,11 +225,14 @@ of printing:
 13
 14
 15
-16$1 = void
+16
+$1 = void
 (gdb) p print(X)
 1 4
 2 5
-3 6$2 = void```
+3 6
+$2 = void
+```
 
 </details>
 
