@@ -7,7 +7,8 @@ We will assume that you are using the `gcc` compiler, and the
 accompayning `gdb` debugger.
 
 #### Operating system specific notes
-* Linux: debugging works without problems
+* Linux: debugging works without problems, but it is recommended to
+not use RStudio when doing debugging (use the ordinary R command line prompt instead).
 * Mac: ?
 * Windows: The behaviour of `gdb` has varied across
   versions of R and Rtools. In case of problems, please consult: [https://github.com/kaskr/adcomp/wiki/Windows-installation#windows-debugging](https://github.com/kaskr/adcomp/wiki/Windows-installation#windows-debugging). Further, allthough it is possible to run the simple example in this tutorial under Windows, larger .cpp files will not work. It is generally recommended to install [Windows Subsystem for Linux](https://en.wikipedia.org/wiki/Windows_Subsystem_for_Linux). It is a bit of work setting it up, but once installed it is easy to switch over to that whenever it is necessary to use the debugger.
