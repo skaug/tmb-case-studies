@@ -1,6 +1,6 @@
 # Case studies in TMB
 
-[TMB](github.com/kaskr/adcomp) is software package based on AD (atomatic differentiation) for fitting statistical models. The
+[TMB](https://github.com/kaskr/adcomp) is software package based on AD (atomatic differentiation) for fitting statistical models. The
 present repository contains a collection of worked TMB examples provided for educational purposes. The case studies vary widely in nature and complexity.  
 
 
