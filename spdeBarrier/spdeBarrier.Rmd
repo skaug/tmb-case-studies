@@ -1,0 +1,363 @@
+```{r echo=FALSE, eval=TRUE, results='hide',include=FALSE}
+library(INLA)
+library(fields)
+library(TMB)
+source("../utils.R")
+```
+
+
+## **Spatial modeling with Matern covariance function and land barriers** 
+In this example you learn:
+
+* How to use the SPDE approximation of a Matern spatial random field with land barriers in TMB
+
+We use the approach of 
+[Bakka et al. (2016)](https://www.researchgate.net/publication/306187253_Accounting_for_Physical_Barriers_in_Species_Distribution_Modeling_With_Non-Stationary_Spatial_Random_Effects)
+for taking account of land barriers such as islands (see figure). The basic idea to decrease the correlation range parameter "on an island" compared to the correlation range "in the sea".
+Informally, we can say that the spatial correlation is not allowed to travel accross an island, but is instead forced to travel around. In practice we reduce the spatial range parameter $\kappa$ in the SPDE approximation by a fixed constant $c<1$ on land (while $c=1$ in the ocean).
+
+Before starting on this example, we recomend to go trough [the case study with standard SPDE-procedure](https://github.com/skaug/tmb-case-studies/tree/barrier/spde). 
+
+
+```{r,echo=FALSE, comment="",fig.cap="Figure: Archipelago on the Finnish coast, overlaid with a R-INLA mesh used in the SPDE approximation. The coastline, including that of islands, is denoted in blue. Straight blue line segments represent artificially imposed barriers against parts of the ocean with no observations. Color grey represents land areas, whereas the ocean is colored white. Red circles represent observations, with the radius of the circle representing size of the respons value.", out.width = "500px"}
+knitr::include_graphics("mapAndMesh.png")
+```
+
+***
+#### Description of the practical situation
+In this case study we apply the fish larvea distribution model providede in
+[Bakka et al. (2016)](https://www.researchgate.net/publication/306187253_Accounting_for_Physical_Barriers_in_Species_Distribution_Modeling_With_Non-Stationary_Spatial_Random_Effects). The number of larvea, $y_i$ caught at location ${\bf s}_i$ is assumed to be distributed as
+\begin{align}
+y_i \sim \text{Poisson}(\eta_i),
+\end{align}
+where
+\begin{align}
+\log \eta_i =  X \pmb{\beta} + \delta({\bf s}_i) + \epsilon_i.
+\end{align}
+Here ${\bf X}$ is a design matrix for the fixed effects, $\pmb{\beta}$ is a vector with the covariate regression coefficients, $\pmb{\delta}$ is a latent spatial field with Matern covariance structure with barrieres, and $\pmb{\epsilon}$ is iid Gaussian distributed term yielding over dispersion relative to the Poisson distribution. It is the spatial effect $\pmb{\delta}$ which is of interest in this case study. Note that we do not use the priors included in [Bakka et al. (2016)](https://www.researchgate.net/publication/306187253_Accounting_for_Physical_Barriers_in_Species_Distribution_Modeling_With_Non-Stationary_Spatial_Random_Effects). 
+
+
+See https://haakonbakkagit.github.io/btopic128.html#3_case_study for the same case study with use of R-INLA.
+
+***
+
+#### Full code for example
+<details> <summary> R code</summary>
+```{r,echo=FALSE, comment=""}
+include_source("spdeBarrier.R", linesToInclud=c(1:999))
+```
+</details>
+<details> <summary> C++ code</summary>
+```{r,echo=FALSE, comment=""}
+include_source("spdeBarrier.cpp", linesToInclud=c(1:999))
+```
+</details>
+
+
+
+***
+#### C++ code step-by-step
+<details>  
+  <summary>Include libraries </summary>
+```c++
+  using namespace R_inla; // Includes SPDE-spesific functions, e.g. Q_spde()
+  using namespace density; 
+  using namespace Eigen; // Needed for utilisation of sparse matrices
+```
+</details>
+<details>
+  <summary>Read data from R</summary>
+```c++
+  DATA_VECTOR(y);      //The response
+  DATA_STRUCT(spdeMatrices,spde_t); // SPDE information imported from R-INLA
+  DATA_STRUCT(spdeMatricesBarrier,spde_b); //Barrier information imported from R-INLA
+  DATA_VECTOR(c);      // Scaling factor for kappa: (c_ocean,c_land)
+  DATA_SPARSE_MATRIX(A);  //Matrix for interpolating points witin triangles  (see "Spatial interpolation" below)
+  DATA_INTEGER(barrier); // if barrier==1, barrier procedure is used
+  DATA_MATRIX(X);         //Design matrix for fixed effects
+```
+* Note the line:  `DATA_STRUCT(spdeMatricesBarrier,spde_b);` With this line we include structures needed to construct the barrier precision matrix.
+* Note also the line `DATA_VECTOR(c);`. `c` is a vector were the first element provides the range scaling constant off shore (here 1), and on shore (here 0.2).
+</details>
+
+<details>
+  <summary>Read parameters from R</summary>
+```c++
+  PARAMETER_VECTOR(beta); //Regresion coefficients for intercept and covariates
+  PARAMETER(log_tau); //log precision for spatial effect
+  PARAMETER(log_kappa); //log spatial scale parameter in spatial effect
+  PARAMETER(log_sigma_e); //log standard deviation in iid effect
+  PARAMETER_VECTOR(x); //Spatial field at mesh nodes (see "Spatial interpolation" below)
+  PARAMETER_VECTOR(epsilon);  //Iid effect
+```
+</details>
+
+<details>
+  <summary>Transform some of the parameters. </summary>
+```c++
+  Type tau = exp(log_tau);
+  Type kappa = exp(log_kappa);
+  Type sigma_e = exp(log_sigma_e);
+```
+</details>
+
+<details>
+  <summary>Spatial interpolation</summary>
+```c++
+  vector<Type> delta = (A*x)/tau;
+```
+* `x` is the value of the random field at the mesh nodes (see figure),
+while `delta` is the value at the observation locations.
+* We use `x` as our latent variable, to which the Laplace approximation is applied.
+* `A` is a spatial interpolation matrix set up in R-INLA.
+* Note in addition that `x` is "unscaled", i.e. its distribution does not depend on the precision paramater `tau`.
+</details>
+
+<details>
+  <summary>Extract the precission matrix $Q$ for the GMRF resulting from the SPDE approximation with barriers. </summary>
+```c++
+  SparseMatrix<Type> Q;
+  Q = Q_spde(spdeMatricesBarrier,kappa,c);
+```
+* Here we calculate the sparse precision matrix which accomondates for that the spatial range is five times shorter on land compared to at sea.
+</details>
+
+<details>
+  <summary>Define the objective function 
+  $\text{nll}=-\left(\log P(\text{data}|\pmb{\beta}, \pmb{\delta},\pmb{\epsilon}) + \log P(\pmb{\delta}|\kappa,\tau)+ \log P(\pmb{\epsilon}|\sigma_{\epsilon})\right)$. </summary>
+```c++
+  Type nll=0; //negative log-likelihood
+```
+</details>
+
+<details>
+  <summary>Add the likelihood contribution from the Markov random field: $P(\pmb{\delta}|\kappa,\tau)$ </summary>
+```c++
+  nll = GMRF(Q)(x);       
+```
+
+* `GMRF()` is part of the `density` namespace in TMB, and hence returns
+  the *negative* log density of the multivariate normal density with
+  precision matrix $Q$, evaluated at $x$.
+* You may be surprised to find `GMRF(Q)(x)` instead of `GMRF(Q)(delta)` here. The reason is that we are working
+internally with `x` instead of `delta` as noted above.
+</details>
+
+
+<details>
+  <summary>Likelihood contribution by iid effect: $P(\pmb{\epsilon}|\sigma_{\epsilon})$ </summary>
+```c++
+  for(int i =0; i< y.size(); ++i){
+    nll-= dnorm(epsilon(i), Type(0), sigma_e,true);
+  }
+```
+</details>
+
+<details>
+  <summary>Calculates the linear predictor </summary>
+```c++
+  vector<Type> eta = exp(X*beta + delta + epsilon);
+```
+</details>
+
+<details>
+  <summary>Calculates the likelihood contribution from the observations: $P(\pmb{\text{data}}|\pmb{\beta},\pmb{\delta},\pmb{\epsilon})$ </summary>
+```c++
+  for(int i=0; i<y.size(); i++){
+    nll -= dpois(y(i), eta(i),true);
+  }
+```
+</details>
+
+
+<details>
+  <summary>Calculates "spatial range" and reports back to R.  </summary>
+```c++
+  Type range = sqrt(8)/kappa;  //Distance at which correlation has dropped to 0.1 (in the ocean), see p. 4 in Lindgren et al. (2011)
+  ADREPORT(range);      // Report point estimate and SD to R
+  ADREPORT(x);
+```
+</details>
+
+
+***
+
+#### R code step-by-step
+<details>  
+  <summary>Include libraries</summary>
+```r
+  library(TMB)
+  library(INLA)
+  library(fields)
+```
+</details>
+
+<details>  
+  <summary>Compile and load the C++ code</summary>
+```r
+  compile("spdeBarrier.cpp")
+  dyn.load("spdeBarrier")
+```
+</details>
+
+<details>  
+  <summary>Download and read data</summary>
+```r
+  dir.create("data/")
+  download.file(url = "https://haakonbakkagit.github.io/data/WebSiteData-Archipelago.RData", destfile = "data/WebSiteData-Archipelago.RData")
+  load(file = "data/WebSiteData-Archipelago.RData")
+```
+</details>
+
+<details>  
+  <summary>Construct the mesh needed to define the SPDE approximation</summary>
+```r
+  mesh = inla.mesh.2d(boundary = poly.water,
+                      loc=cbind(df$locx, df$locy),
+                      max.edge = c(1,5)*0.6,
+                      cutoff = 0.06,
+                      offset = c(0.6, 4.6))
+```
+
+* Familiarity with R-INLA is needed to understand this code.
+</details>
+
+<details>  
+  <summary>Construct spatial interpolation matrix that relates `x` to `delta`</summary>
+```r
+  A = inla.spde.make.A(mesh, loc = cbind(df$locx, df$locy))
+```
+</details>
+
+<details>  
+  <summary>Find barrier triangles</summary>
+```r
+  tl = length(mesh$graph$tv[,1])
+  posTri = matrix(0, tl, 2)
+  for(t in 1:tl){
+    temp = mesh$loc[mesh$graph$tv[t, ], ]
+    posTri[t,] = colMeans(temp)[c(1,2)]
+  }
+  posTri = SpatialPoints(posTri)
+  normal = unlist(over(poly.water, posTri, returnList=T))
+  barrier.triangles = setdiff(1:tl, normal)
+```
+* The vector `barrier.triangles` consists of indecies triangles in the mesh which have their center point on land (grey triangles in the figure above). These are the triangles 
+to which the reduction factor $c$ is applied to the spatial range $\kappa$.
+</details>
+
+
+<details>  
+  <summary>Extract the matrices needed for calculating the sparse precision matrix representing the GMRF</summary>
+```r
+  fem = INLA:::inla.barrier.fem(mesh = mesh, barrier.triangles = barrier.triangles)
+  spdeMatricesBarrier = list(C0 = fem$C[[1]],C1 =fem$C[[2]] ,D0 = fem$D[[1]],D1 = fem$D[[2]],I = fem$I ) 
+```
+* This part is identical to the standard SPDE example (without barriers).
+</details>
+
+<details>  
+  <summary>Calculate the fixed effect design matrix</summary>
+```r
+X <- model.matrix( ~ 1, data = df) # No covariates
+```
+* Only an intercept is used in this example.
+</details>
+
+<details>  
+  <summary>Construct the data list which is given to TMB (C++)</summary>
+```r
+  data = list(y = df$y.smelt,
+              A = A,
+              spdeMatrices = spdeMatrices,
+              spdeMatricesBarrier = spdeMatricesBarrier,
+              barrier = 1,
+              c = c(1,0.2),
+              X = as.matrix(X)
+  )
+```
+* Two data sources `c` and `spdeMatricesBarrier` are of speciall interest in this case study. The secound element in `c` provides the scaling factor of the range on land, and `spdeMatricesBarrier` provides the structures needed to use the barrier option in TMB.
+</details>
+
+<details>  
+  <summary>Construct the parameter list with initial values which is given to TMB (C++)</summary>
+```r
+  par = list(beta = rep(0,dim(X)[2]),
+             log_tau =1,
+             log_kappa = -3,
+             log_sigma_e = -3,
+             x = rep(0,mesh$n),
+             epsilon = rep(0,length(df$y.smelt)))
+```
+
+* Note that numerical minimization routines such as `nlminb` can be sensitive to the staring values for `log_tau` and `log_kappa`.
+</details>
+
+<details>  
+  <summary>Fit the model</summary>
+```r
+  obj <- MakeADFun(data, par, random=c("x", "epsilon"), DLL="spdeBarrier")
+  opt <- nlminb(obj$par, obj$fn, obj$gr)
+  rep = sdreport(obj)
+```
+</details>
+
+
+***
+#### Exercise
+
+<details>  
+  <summary> 1. Fit model and plot estimate of spatial effect.</summary>
+  
+  Follow the lines above to fit the model. Plot of spatial effect can e.g. be constructed like this:
+  
+```r
+  proj = inla.mesh.projector(mesh)
+  latentFieldMAP = rep$par.random[names(rep$par.random)=="x"]/exp(rep$par.fixed[which(names(rep$par.fixed)=="log_tau")])
+  image.plot(proj$x,proj$y, inla.mesh.project(proj, latentFieldMAP),col =  colorRampPalette(c("white","yellow", "red"))(12),
+             xlab = 'Easting', ylab = 'Northing',zlim = c(-4,10),
+             main = "MAP estimate of spatial latent field",
+             cex.lab = 1.1,cex.axis = 1.1, cex.main=1, cex.sub= 1.1)
+  plot(inla.barrier.polygon(mesh, barrier.triangles), add=T)
+  contour(proj$x, proj$y,inla.mesh.project(proj, latentFieldMAP) ,add = T,labcex  = 1,cex = 1)
+```
+  ![](spatialBarrierTMB2.png){width=40%}
+
+</details>
+
+<details>  
+  <summary> 2. Compare estimated spatial effect with and without barriers.</summary>
+  
+  Standard SPDE-procedure can be used by setting `barrier` equal 0. Be sure you understand the implementation, and thereby why this is the case.
+```r
+  data = list(y = df$y.smelt,
+              A = A,
+              spdeMatrices = spdeMatrices,
+              spdeMatricesBarrier = spdeMatricesBarrier,
+              barrier = 0, #Turn of barrier
+              c = c(1,0.2),
+              X = as.matrix(X)
+  )
+  obj <- MakeADFun(data, par, random=c("x", "epsilon"), DLL="spdeBarrier")
+  opt <- nlminb(obj$par, obj$fn, obj$gr)
+  rep = sdreport(obj)
+```
+  ![](spatialBarrierTMB2.png){width=40%} ![](spatialTMB.png){width=40%}
+
+
+</details>
+
+
+
+
+<details>  
+  <summary> 3. Fit model and compare estimated spatial effect by TMB and INLA.</summary>
+  
+* Code to run model with R-INLA is given here: https://haakonbakkagit.github.io/btopic128.html#3_case_study.
+
+  ![](spatialBarrierTMB.png){width=40%} ![](spatialBarrierINLA.png){width=40%}
+
+</details>
+
+
+
