@@ -7,8 +7,9 @@ compile("spdeBarrier.cpp")
 dyn.load("spdeBarrier")
 
 #Download and read data
-download.file(url = "https://haakonbakka.bitbucket.io/data/WebSiteData-Archipelago.RData", destfile = "WebSiteData-Archipelago.RData")
-load(file = "WebSiteData-Archipelago.RData")
+dir.create("data/")
+download.file(url = "https://haakonbakkagit.github.io/data/WebSiteData-Archipelago.RData", destfile = "data/WebSiteData-Archipelago.RData")
+load(file = "data/WebSiteData-Archipelago.RData")
 
 #Construtc mesh
 mesh = inla.mesh.2d(boundary = poly.water,
@@ -17,7 +18,7 @@ mesh = inla.mesh.2d(boundary = poly.water,
                     cutoff = 0.06,
                     offset = c(0.6, 4.6))
 #Plot mesh
-plot(mesh) 
+plot(mesh)
 points(df$locx, df$locy, col="red",cex = log(df$y.smelt+3), pch = "o")
 
 #Construct spatial interpolation matrix

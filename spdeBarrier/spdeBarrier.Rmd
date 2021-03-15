@@ -19,7 +19,7 @@ Informally, we can say that the spatial correlation is not allowed to travel acc
 Before starting on this example, we recomend to go trough [the case study with standard SPDE-procedure](https://github.com/skaug/tmb-case-studies/tree/barrier/spde). 
 
 
-```{r,echo=FALSE, comment="",fig.cap="Figure: Archipelago on the Norwegian coast, overlaid with a R-INLA mesh used in the SPDE approximation. The coastline, including that of islands, is denoted in blue. (The ). Straight blue line segments represent artificially imposed barriers against parts of the ocean with no observations. Color grey represents land areas, whereas the ocean is colored white. Red circles represent observations, with the radius of the circle representing the respons value.", out.width = "500px"}
+```{r,echo=FALSE, comment="",fig.cap="Figure: Archipelago on the Finnish coast, overlaid with a R-INLA mesh used in the SPDE approximation. The coastline, including that of islands, is denoted in blue. Straight blue line segments represent artificially imposed barriers against parts of the ocean with no observations. Color grey represents land areas, whereas the ocean is colored white. Red circles represent observations, with the radius of the circle representing size of the respons value.", out.width = "500px"}
 knitr::include_graphics("mapAndMesh.png")
 ```
 
@@ -203,8 +203,9 @@ internally with `x` instead of `delta` as noted above.
 <details>  
   <summary>Download and read data</summary>
 ```r
-  download.file(url = "https://haakonbakka.bitbucket.io/data/WebSiteData-Archipelago.RData", destfile = "WebSiteData-Archipelago.RData")
-  load(file = "WebSiteData-Archipelago.RData")
+  dir.create("data/")
+  download.file(url = "https://haakonbakkagit.github.io/data/WebSiteData-Archipelago.RData", destfile = "data/WebSiteData-Archipelago.RData")
+  load(file = "data/WebSiteData-Archipelago.RData")
 ```
 </details>
 
