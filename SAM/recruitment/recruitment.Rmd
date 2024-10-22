@@ -331,23 +331,27 @@ Type objective_function<Type>::operator()(){
 2. 
 <details> 
   <summary> Implement the likelihood for the observation equation. </summary>
-```c++
+  
+    ```c++
     // Contribution to likelihood from observations Robs
     for(int i = 0; i < n; i++){
         nll -= dnorm(log_Robs(i), logR(i), sigma_Robs, true);
     }
-```
+    ```
+    
 </details> 
 
 3. 
 <details> 
   <summary> Plot the estimated recruitment process with 2 times standard error </summary> 
-```r
+
+    ```r
     plot(Robs$year, log(Robs$Robs), ylab = "Recruitment", xlab = "year")
     lines(Robs$year, logR_rep[, 1], col="black")
     lines(Robs$year, logR_rep[, 1] - 2 * logR_rep[, 2], col="black", lty="dashed")
     lines(Robs$year, logR_rep[, 1] + 2 * logR_rep[, 2], col="black", lty="dashed")
-```
+    ```
+    
 </details> 
 
 
