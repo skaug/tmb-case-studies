@@ -77,7 +77,7 @@ Type objective_function<Type>::operator()(){
   Type nll = 0; // negative log likelihood
   vector<Type> log_Robs = log(Robs); // log of recruitment
   
-  // Se exercise 1 below for negative log-likelihood
+  // See exercise 1 below for negative log-likelihood
   
   return(nll); 
 }
@@ -125,9 +125,9 @@ PARAMETER(log_sigma_r);
 </details> 
 
 ***
-#### Exercice 1
+#### Exercise 1
 Make a new TMB project (`recruit1.R` and `recruit1.cpp`) in the same folder. Copy code from the above *Full code for example*, and inside
-`recruit1.cpp` change `recruitment` to `recruit1` in 3 places.
+`recruit1.R` change `recruitment` to `recruit1` in 3 places.
 You should be able to compile the model but the call to `nlminb` 
 will not work until you have completed the steps below.
 
@@ -159,10 +159,10 @@ will not work until you have completed the steps below.
 
 ### Recruitment as a state space model 
 
-Assume that we don't observe the recruitment process directly and that measurement error is introduced. We assume that the measurment error $\eta_y \sim N(0, \sigma_{R^\text{obs}}^2)$ and iid. The model can then be expressed as:
+Assume that we don't observe the recruitment process directly and that measurement error is introduced. We assume that the measurement error $\eta_y \sim N(0, \sigma_{R^\text{obs}}^2)$ and iid. The model can then be expressed as:
 
 \begin{align}
-  \log R_y^{(\text{obs})} &= R_y + \eta_y, \\
+  \log R_y^{(\text{obs})} &= \log R_y + \eta_y, \\
   \log R_y &= \log R_{y-1} + \epsilon_y. 
 \end{align}
 
@@ -331,23 +331,23 @@ Type objective_function<Type>::operator()(){
 2. 
 <details> 
   <summary> Implement the likelihood for the observation equation. </summary>
-    ```c++
-       // Contribution to likelihood from observations Robs
-       for(int i = 0; i < n; i++){
-         nll -= dnorm(log_Robs(i), logR(i), sigma_Robs, true);
-       }
-    ```
+```c++
+    // Contribution to likelihood from observations Robs
+    for(int i = 0; i < n; i++){
+        nll -= dnorm(log_Robs(i), logR(i), sigma_Robs, true);
+    }
+```
 </details> 
 
 3. 
 <details> 
   <summary> Plot the estimated recruitment process with 2 times standard error </summary> 
-    ```r
+```r
     plot(Robs$year, log(Robs$Robs), ylab = "Recruitment", xlab = "year")
     lines(Robs$year, logR_rep[, 1], col="black")
     lines(Robs$year, logR_rep[, 1] - 2 * logR_rep[, 2], col="black", lty="dashed")
     lines(Robs$year, logR_rep[, 1] + 2 * logR_rep[, 2], col="black", lty="dashed")
-    ```
+```
 </details> 
 
 
@@ -358,10 +358,10 @@ Type objective_function<Type>::operator()(){
 Instead of letting the recruitment be a function of the recruitment from the year before, we can use the spawning stock biomass from last year to predict the recruitment. 
 We will look at two recruitment functions: 
 
-* Richer: $f(SSB) = \alpha\cdot SSB \cdot e^{-\beta\cdot SSB}$
+* Ricker: $f(SSB) = \alpha\cdot SSB \cdot e^{-\beta\cdot SSB}$
 * Beverton-Holt: $f(SSB) = \frac{\alpha\cdot SSB}{1 + \beta\cdot SSB}$
 
-We can then setup our recruitment process like: 
+We can then set up our recruitment process like: 
 
 \[
   \log R_y = \log f(SSB_{y - 1}) + \epsilon_y, \quad \text{where } \epsilon \sim N(0, \sigma_R^2)
@@ -376,7 +376,7 @@ We can then setup our recruitment process like:
   <summary> R code </summary> 
 ```{r, echo=-1, comment = "", message=FALSE, results = "hide", warning=FALSE}
 
-# Richer 
+# Ricker 
 
 compile("recruitment_state_space_SSB.cpp")
 dyn.load(dynlib("recruitment_state_space_SSB"))
@@ -430,7 +430,7 @@ lines(Robs$year, logR_rep[, 1] - 2 * logR_rep[, 2], col="black", lty="dashed")
 lines(Robs$year, logR_rep[, 1] + 2 * logR_rep[, 2], col="black", lty="dashed")
 lines(Robs$year, logR_r_rep[, 1], col = "red")
 lines(Robs$year, logR_bh_rep[, 1], col = "blue")
-legend("bottomright", c("Random walk", "Ricker", "Berverton-Hold"), lty = 1, col = c("black", "red", "blue"))}
+legend("bottomright", c("Random walk", "Ricker", "Beverton-Holt"), lty = 1, col = c("black", "red", "blue"))}
 
 
 ```
@@ -483,7 +483,7 @@ Type objective_function<Type>::operator()(){
      break;
 
    case 2:
-     // See exercice below
+     // See exercise below
      break;
 
    default:
@@ -512,7 +512,7 @@ Type objective_function<Type>::operator()(){
 
 1. 
 <details> 
-  <summary> Implement the Beverton-Holt model in the TMB program (note that the parameters are on log scale) 
+  <summary> Implement the Beverton-Holt model in the TMB program (note that the parameters are on a log scale) 
   </summary> 
 
     ```c++
