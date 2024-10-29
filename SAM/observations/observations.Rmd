@@ -33,16 +33,16 @@ The catch-at-age is predicted by the Baranov catch equation:
   C_{a,y} = \frac{F_{a,y}}{F_{a,y} + M_{a,y}} N_{a,y} (1 - e^{- F_{a,y} - M_{a,y}}).
 \]
 This equation is based on the assumption that the surviving part of each cohort develops over time 
-accoring to the differential equation: 
+according to the differential equation: 
 \[
   \frac{dN}{dt} = -(F + M)N,
 \]
 which has the solution $N = N_0 e^{-F-M}$, meaning that the dead cohort size is $N_0(1 - e^{-F-M})$. 
 Combined with the fact that the proportion of deaths due to fishing is $F_{a,y}/(F_{a,y} + M_{a,y})$ gives the Baranov catch equation.   
 
-For convinience, we will define the total mortality as $Z_{a,y} = F_{a,y} + M_{a,y}$. Taking the logarithm and assuming gaussian observation noise ($\epsilon_{a,y}$), we can write our model as 
+For convenience, we will define the total mortality as $Z_{a,y} = F_{a,y} + M_{a,y}$. Taking the logarithm and assuming Gaussian observation noise ($\epsilon_{a,y}$), we can write our model as 
 \[
-  \log C_{a,y} = \log F_{a,y} - \log Z_{a,y} + \log N_{a,y} + log(1 - e^{-Z_{a,y}}) + \epsilon_{a,y},
+  \log C_{a,y} = \log F_{a,y} - \log Z_{a,y} + \log N_{a,y} + \log(1 - e^{-Z_{a,y}}) + \epsilon_{a,y},
 \]
 where $\epsilon_{a,y} \sim N(0,\sigma^2)$. 
 

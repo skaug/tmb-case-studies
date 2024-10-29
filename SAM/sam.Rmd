@@ -33,7 +33,7 @@ $\begin{align}
 \log N_{A,y} &= \log (N_{A-1,y-1} e^{- F_{A-1,y-1} - M_{A-1, y-1}} + N_{A,y-1} e^{ - F_{A,y-1} - M_{A, y-1}}) + \eta_{A,y}
  \end{align}$
 
-where $R(\cdot)$ is a function describing the spawning productivity of the cod, $A$ represents a maximum age, $F$ represents the fishing mortality and $M$ the natural mortality. It is assumed that the process error $\eta_{a,y}$ is iid N(0,$\sigma_{\eta,a}^2$), i.e. independently normally distributed. We combine all age specific quantites into vectors: 
+where $R(\cdot)$ is a function describing the spawning productivity of the cod, $A$ represents a maximum age, $F$ represents the fishing mortality and $M$ the natural mortality. It is assumed that the process error $\eta_{a,y}$ is iid N(0,$\sigma_{\eta,a}^2$), i.e. independently normally distributed. We combine all age specific quantities into vectors: 
 ${\bf N}_{y}=(N_{1,y},\ldots,N_{A,y})$ and ${\bf F}_{y}=(F_{1,y},\ldots,F_{A,y})$.
 
 <details> <summary> Details about fishing mortality and observation equations </summary> 
@@ -60,7 +60,7 @@ load("input.RData")
 rownames(data$obs) <- NULL
 print(data$obs[which(data$obs[,1]==1999),1:4])
 ```
-The variable `fleet` provides information about if the observation is commercial catch or which survey it is from. In this example refere the value 1 to catch data, and 2 and 3 to the two separate surveys.
+The variable `fleet` provides information about whether the observation is commercial catch or which survey it is from. In this example the value 1 refers to catch data, and 2 and 3 to the two separate surveys.
 </details>
 
 ***
@@ -191,7 +191,7 @@ include_source("sam.cpp", linesToInclud=c(29:999))
 </details>
 
 <details>
-  <summary>Calculates the likelihood contribution from process model for fishing mortality $F$ </summary>
+  <summary>Calculate the likelihood contribution from process model for fishing mortality $F$ </summary>
 ```c++
   using namespace density;
   MVNORM_t<Type> neg_log_densityF(fvar);
@@ -202,7 +202,7 @@ include_source("sam.cpp", linesToInclud=c(29:999))
 </details>
 
 <details>
-  <summary>Calculates the SSB, used to predict recruitment </summary>
+  <summary>Calculate the SSB, used to predict recruitment </summary>
 ```c++
   for(int i=0;i<timeSteps;i++){ // calc ssb
     ssb(i)=0.0;
@@ -214,7 +214,7 @@ include_source("sam.cpp", linesToInclud=c(29:999))
 ```
 </details>
 
-<details> <summary> Calculates the likelihood contribution from the process model for $N$ (equations above).  </summary>
+<details> <summary> Calculate the likelihood contribution from the process model for $N$ (equations above).  </summary>
 ```c++
   matrix<Type> nvar(stateDimN,stateDimN);
   for(int i=0; i<stateDimN; ++i){
@@ -256,7 +256,7 @@ include_source("sam.cpp", linesToInclud=c(29:999))
 </details>
 
 <details>
-<summary> Calculates the likelihood contribution from the observations (indexes and commercial landings)   </summary>
+<summary> Calculate the likelihood contribution from the observations (indexes and commercial landings)   </summary>
 ```c++
   int f, ft, a, y,yy, scaleIdx;
   int minYear=CppAD::Integer((obs(0,0)));
@@ -309,7 +309,7 @@ include_source("sam.cpp", linesToInclud=c(29:999))
 </details>
 
 <details>
-<summary>Calculates the average fishery mortality ($\bar F$), which is returned for illustration </summary>
+<summary>Calculate the average fishery mortality ($\bar F$), which is returned for illustration </summary>
 ```c++
   for(int y=0;y<timeSteps;y++){
     fbar(y)=Type(0);
@@ -323,7 +323,7 @@ include_source("sam.cpp", linesToInclud=c(29:999))
 </details>
 
 <details>
-<summary>Calculates the estimated catch, which is returned for illustration </summary>
+<summary>Calculate the estimated catch, which is returned for illustration </summary>
 ```c++
   for(int y=0;y<catchMeanWeight.dim(0);y++){
     cat(y)=Type(0);
@@ -337,7 +337,7 @@ include_source("sam.cpp", linesToInclud=c(29:999))
 </details>
 
 <details>
-<summary>Calculates the recruitment, which is returned for illustration </summary>
+<summary>Calculate the recruitment, which is returned for illustration </summary>
 ```c++
   for(int y=0;y<timeSteps;y++){  
     logR(y)=logN(0,y);
@@ -365,11 +365,13 @@ include_source("sam.cpp", linesToInclud=c(29:999))
 1. 
 <details>  
   <summary> Fit the model and collect the returned uncertainty estimates by TMB.</summary>
-```r
+  
+  ```r
   obj <- MakeADFun(data,parameters,random=c("logN","logF"),DLL="sam")
   opt<-nlminb(obj$par,obj$fn,obj$gr,control=list(trace=1,eval.max=1200,iter.max=900))
   sdrep<-sdreport(obj)
-```
+  ```
+  
 </details>
 
 2. 
@@ -426,6 +428,7 @@ include_source("sam.cpp", linesToInclud=c(29:999))
     ```
     
     Plot the residuals:
+    
     ```r
       tmp = as.data.frame(data$obs)
       tmp$res = predict$residual

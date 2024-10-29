@@ -101,5 +101,5 @@ rep <- sdreport(obj)
 logR_rep <- summary(rep, "random")
 
 lines(Robs$year, logR_rep[, 1], col = "blue")
-legend("bottomright", c("Random walk", "Ricker", "Berverton-Hold"), lty = 1, col = c("black", "red", "blue"))
+legend("bottomright", c("Random walk", "Ricker", "Beverton-Holt"), lty = 1, col = c("black", "red", "blue"))
 

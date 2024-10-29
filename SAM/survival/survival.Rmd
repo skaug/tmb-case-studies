@@ -15,7 +15,7 @@ source("../../utils.R")
 ## **Survival**
 
 In the first example we looked at the recruitment process, where we modeled the number of fish
-born ($R_y$) in year $y$. The next step is to look at survival of individulas aged $a$ 
+born ($R_y$) in year $y$. The next step is to look at survival of individuals aged $a$ 
 from one year to the next, i.e. age-structured population dynamics. Denote by $N_{a,y}$ the number
 of fish aged $a$ alive in year $y$. For example, $N_{1, 8}$ is the number of fish of age 1 in year 8 (i.e $R_8$). The number of fish next year equals the number of fish this year minus those who have died and added those who have been born. This can be expressed mathematically as:
 
@@ -29,7 +29,7 @@ where $F$ is the fishing mortality and $M$ is the natural mortality. If our mode
   \label{eq:survival}
   \log N_{A,y} = \log (N_{A-1,y-1} e^{- F_{A-1,y-1} - M_{A-1, y-1}} + N_{A,y-1} e^{ - F_{A,y-1} - M_{A,   y-1}}) + \eta_{Ay}, 
 \end{equation}
-where the contribution is the survival form last year in the age group below, but also from the same age group from last year, since this is the maximum age. 
+where the contribution is the survival form last year in the age group below, but also from the same age group from last year, since all older fish are contained in this final age group.
 
 *** 
 
@@ -410,7 +410,7 @@ Type objective_function<Type>::operator()(){
     dyn.load(dynlib("Fobs"))
     
     
-    load("Fobs.Rdata")
+    load("Fobs.RData")
     
     # Calculate AIC for a given model
     TMBAIC <- function(opt){
@@ -438,7 +438,7 @@ Type objective_function<Type>::operator()(){
     matplot(Fobs$year, as.list(rep, "Est")$logF, type="l", add=TRUE)
     
     
-    # Compund symmetry - Model 2 ------
+    # Compound symmetry - Model 2 ------
     data <- list(Fobs = Fobs$Fobs,
                  cormode = 1)
     
